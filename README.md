@@ -42,16 +42,24 @@ Supabase instead of disappearing on refresh.
 
 ## 4. Deploy
 
-1. Push this folder to a GitHub repository.
+1. Push this folder to a GitHub repository (already done — see
+   [github.com/jewey93/AgendaApp](https://github.com/jewey93/AgendaApp)).
 2. Go to [vercel.com](https://vercel.com), "Add New Project", and import
-   that repo. Vercel auto-detects Vite — no config needed.
+   that repo. Vercel auto-detects Vite; the build settings should read:
+   - **Framework Preset:** Vite
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `dist`
+   - **Install Command:** `npm install`
 3. In the Vercel project's **Settings → Environment Variables**, add the
-   same two values from your `.env`:
+   same two values from your `.env` (for all environments — Production,
+   Preview, and Development):
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
 4. Deploy. Vercel gives you a `https://your-app.vercel.app` URL with SSL
    included automatically. You can attach a custom domain later under
    **Settings → Domains**.
+5. Every future `git push` to `main` triggers a new production deploy
+   automatically — no manual redeploy step needed.
 
 ## How data is stored
 
@@ -121,6 +129,39 @@ a recoverable passphrase would mean someone else could get in too.
 - **Reminders** — a bell icon in the sidebar shows due-soon and overdue
   tasks at a glance, with an optional one-click opt-in to real browser
   notifications.
+
+## Current status & what's next
+
+**Working today:** auth + client-side E2E encryption, full task CRUD with
+the rapid-capture parser, Today/Daily/Weekly/Monthly views with
+drag-to-reschedule, journal search, goals with milestone tracking and
+task-linking, fitness/water/weight logging, due-soon reminders with
+optional push notifications, a persistent Pomodoro timer, real
+consecutive-day streak tracking (computed from task history, not a
+stub), recurring task generation (daily/weekly/biweekly/monthly/yearly,
+generated client-side on load), a mobile top-bar for navigation below
+760px, and an in-app forgot-password flow.
+
+**Still open:**
+- Touch-compatible drag-and-drop — Weekly/Monthly reschedule still uses
+  native HTML5 drag events, which don't fire on touch screens. A
+  library like `@dnd-kit/core` (touch-aware) is the likely fix.
+- No automated tests yet. `src/domain/` is pure functions with zero
+  dependencies — the highest-value starting point (Vitest works
+  natively with this Vite setup).
+- No encrypted recovery key — a lost passphrase is unrecoverable by
+  design (see `ARCHITECTURE.md`). Worth a deliberate design pass if
+  losing access becomes a real support burden.
+- No offline/PWA support — every action needs a live Supabase
+  connection.
+- No strict Content Security Policy — `vercel.json` sets baseline
+  security headers, but a real CSP needs the deployment's
+  `VITE_SUPABASE_URL` hardcoded into the header rule, which a static
+  `vercel.json` can't read from an env var at build time.
+- `src/ui/AppShell.jsx` is a large single file (~1,000 lines) covering
+  every view plus both modals. Functionally fine; splitting into
+  `src/ui/views/*.jsx` would help navigation as the codebase grows —
+  pure reorganization, no logic change.
 
 ## Costs at a glance
 
