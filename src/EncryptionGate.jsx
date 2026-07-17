@@ -19,19 +19,33 @@
  * The derived key lives only in this component's React state, which
  * only exists in memory for this browser tab. Closing the tab, or
  * logging out, throws it away — by design.
+ *
+ * One deliberate exception: the passphrase itself (not the derived
+ * key — crypto.js derives it as non-extractable, and that doesn't
+ * change here) is cached in sessionStorage after a successful unlock,
+ * so an accidental refresh — or a mobile browser reclaiming memory and
+ * reloading the tab, which happens constantly — re-derives the key
+ * silently instead of forcing the passphrase prompt again. sessionStorage
+ * is tab-scoped and gone the moment the tab actually closes, so the
+ * no-persistence guarantee across sessions still holds; the tradeoff is
+ * narrower than that: a refresh on a left-open, already-unlocked tab no
+ * longer re-locks it. Cleared explicitly on logout (see handleLogout).
  * ------------------------------------------------------------------
  */
 import React, { useState, useEffect } from "react";
-import { Lock, ShieldCheck, Loader2, AlertTriangle } from "lucide-react";
+import { Lock, ShieldCheck, Loader2, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { loadSalt, saveSalt, loadAgendaData } from "./data/taskRepository.js";
 import { generateSalt, createEncryptionKey } from "./data/crypto.js";
 import App from "./App.jsx";
+
+const SESSION_PASSPHRASE_KEY = "agenda:session-passphrase";
 
 export default function EncryptionGate({ session, onLogout }) {
   const [phase, setPhase] = useState("checking"); // checking | setup | unlock | ready
   const [salt, setSalt] = useState(null);
   const [passphrase, setPassphrase] = useState("");
   const [confirmPassphrase, setConfirmPassphrase] = useState("");
+  const [showPassphrase, setShowPassphrase] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState(null);
@@ -40,8 +54,25 @@ export default function EncryptionGate({ session, onLogout }) {
     (async () => {
       try {
         const existing = await loadSalt();
-        if (existing) { setSalt(existing); setPhase("unlock"); }
-        else setPhase("setup");
+        if (!existing) { setSalt(null); setPhase("setup"); return; }
+        setSalt(existing);
+
+        // A passphrase cached from earlier this same tab session means
+        // this is very likely a refresh, not a new visit — try it
+        // silently before falling back to asking again.
+        const cached = sessionStorage.getItem(SESSION_PASSPHRASE_KEY);
+        if (cached) {
+          try {
+            const key = await createEncryptionKey(cached, existing);
+            await loadAgendaData(key);
+            setEncryptionKey(key);
+            setPhase("ready");
+            return;
+          } catch {
+            sessionStorage.removeItem(SESSION_PASSPHRASE_KEY); // stale/invalid — don't keep retrying it
+          }
+        }
+        setPhase("unlock");
       } catch (e) {
         setError("Couldn't reach your account's storage. Check your connection and refresh.");
       }
@@ -58,6 +89,7 @@ export default function EncryptionGate({ session, onLogout }) {
       const newSalt = generateSalt();
       const key = await createEncryptionKey(passphrase, newSalt);
       await saveSalt(newSalt);
+      sessionStorage.setItem(SESSION_PASSPHRASE_KEY, passphrase);
       setEncryptionKey(key);
       setPhase("ready");
     } catch (e) {
@@ -74,6 +106,7 @@ export default function EncryptionGate({ session, onLogout }) {
     try {
       const key = await createEncryptionKey(passphrase, salt);
       await loadAgendaData(key); // throws if the passphrase is wrong — see crypto.js
+      sessionStorage.setItem(SESSION_PASSPHRASE_KEY, passphrase);
       setEncryptionKey(key);
       setPhase("ready");
     } catch (e) {
@@ -83,8 +116,13 @@ export default function EncryptionGate({ session, onLogout }) {
     }
   };
 
+  const handleLogout = () => {
+    sessionStorage.removeItem(SESSION_PASSPHRASE_KEY);
+    onLogout?.();
+  };
+
   if (phase === "ready") {
-    return <App session={session} onLogout={onLogout} encryptionKey={encryptionKey} />;
+    return <App session={session} onLogout={handleLogout} encryptionKey={encryptionKey} />;
   }
 
   return (
@@ -102,8 +140,19 @@ export default function EncryptionGate({ session, onLogout }) {
             <div className="encryption-warning"><AlertTriangle size={13} /> There is no password reset for this. If you lose it, your data can't be recovered.</div>
             {error && <div className="auth-msg error">{error}</div>}
             <form onSubmit={handleSetup}>
-              <label><span>Create a passphrase</span><input type="password" autoFocus required value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="At least 8 characters" /></label>
-              <label><span>Confirm passphrase</span><input type="password" required value={confirmPassphrase} onChange={(e) => setConfirmPassphrase(e.target.value)} /></label>
+              <label>
+                <span>Create a passphrase</span>
+                <div className="pass-field">
+                  <input type={showPassphrase ? "text" : "password"} autoFocus required value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="At least 8 characters" />
+                  <button type="button" className="pass-toggle" onClick={() => setShowPassphrase((s) => !s)} aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}>
+                    {showPassphrase ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </label>
+              <label>
+                <span>Confirm passphrase</span>
+                <input type={showPassphrase ? "text" : "password"} required value={confirmPassphrase} onChange={(e) => setConfirmPassphrase(e.target.value)} />
+              </label>
               <button type="submit" disabled={busy}><Lock size={16} /> {busy ? "Setting up…" : "Encrypt and continue"}</button>
             </form>
           </>
@@ -115,14 +164,22 @@ export default function EncryptionGate({ session, onLogout }) {
             <p className="auth-sub">Enter your encryption passphrase to decrypt your data for this session.</p>
             {error && <div className="auth-msg error">{error}</div>}
             <form onSubmit={handleUnlock}>
-              <label><span>Passphrase</span><input type="password" autoFocus required value={passphrase} onChange={(e) => setPassphrase(e.target.value)} /></label>
+              <label>
+                <span>Passphrase</span>
+                <div className="pass-field">
+                  <input type={showPassphrase ? "text" : "password"} autoFocus required value={passphrase} onChange={(e) => setPassphrase(e.target.value)} />
+                  <button type="button" className="pass-toggle" onClick={() => setShowPassphrase((s) => !s)} aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}>
+                    {showPassphrase ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </label>
               <button type="submit" disabled={busy}><Lock size={16} /> {busy ? "Unlocking…" : "Unlock"}</button>
             </form>
           </>
         )}
 
         {onLogout && phase !== "checking" && (
-          <button className="auth-switch" onClick={onLogout}>Log out</button>
+          <button className="auth-switch" onClick={handleLogout}>Log out</button>
         )}
       </div>
     </div>
@@ -142,8 +199,12 @@ const encryptionGateStyles = `
   .auth-msg.error { background:rgba(239,111,102,0.15); color:#EF6F66; }
   .auth-card form { display:flex; flex-direction:column; gap:14px; }
   .auth-card label { display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:600; color:#93A0B4; }
-  .auth-card input { border:1px solid #2A3547; border-radius:8px; padding:9px 11px; background:#1C2536; color:#E8ECF1; font-size:13.5px; outline:none; }
+  .auth-card input { border:1px solid #2A3547; border-radius:8px; padding:9px 11px; background:#1C2536; color:#E8ECF1; font-size:13.5px; outline:none; width:100%; box-sizing:border-box; }
   .auth-card input:focus { border-color:#5B8DEF; }
+  .pass-field { position:relative; display:flex; }
+  .pass-field input { padding-right:34px; }
+  .pass-toggle { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; color:#93A0B4; padding:4px; cursor:pointer; display:flex; align-items:center; border-radius:5px; }
+  .pass-toggle:hover { color:#E8ECF1; }
   .auth-card button[type="submit"] { display:flex; align-items:center; justify-content:center; gap:7px; background:#5B8DEF; color:#fff; border:none; padding:10px 14px; border-radius:9px; font-weight:600; font-size:13.5px; cursor:pointer; margin-top:4px; }
   .auth-card button[type="submit"]:disabled { opacity:0.6; cursor:default; }
   .auth-switch { display:block; width:100%; text-align:center; background:none; border:none; color:#93A0B4; font-size:12.5px; margin-top:16px; cursor:pointer; text-decoration:underline; }

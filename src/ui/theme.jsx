@@ -77,6 +77,14 @@ export function GlobalStyle() {
         --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
       }
       .app-root * { box-sizing: border-box; }
+      /* Thin, theme-matched scrollbars everywhere instead of the
+         browser's default chrome (the blocky arrow-button scrollbar
+         clashes with a clean flat UI like this one). */
+      .app-root * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+      .app-root *::-webkit-scrollbar { width:6px; height:6px; }
+      .app-root *::-webkit-scrollbar-track { background: transparent; }
+      .app-root *::-webkit-scrollbar-thumb { background: var(--border); border-radius:10px; }
+      .app-root *::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
       .loading-screen { align-items:center; justify-content:center; gap:10px; width:100%; color:var(--text-muted); }
       .spin-slow { animation: spin 2s linear infinite; }
       @keyframes spin { to { transform: rotate(360deg); } }
@@ -87,6 +95,12 @@ export function GlobalStyle() {
         position: sticky; top:0; height:100vh; overflow-y:auto;
       }
       .app-root.dark .sidebar { background:#0B1220; }
+      /* The sidebar is always dark regardless of app theme, so its
+         scrollbar thumb needs its own light-on-dark color instead of
+         the theme-driven var(--border) used everywhere else. */
+      .sidebar { scrollbar-color: rgba(255,255,255,0.2) transparent; }
+      .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+      .sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.34); }
       .brand { font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:18px; display:flex; align-items:center; gap:8px; padding: 4px 0 8px; letter-spacing:0.2px;}
       .brand-row { display:flex; align-items:center; justify-content:space-between; padding: 0 8px; }
       .brand-mark { color: var(--accent); }
@@ -223,7 +237,32 @@ export function GlobalStyle() {
       .more-hint { font-size:10.5px; color:var(--text-muted); }
       .add-mini { display:flex; align-items:center; justify-content:center; width:100%; border:1px dashed var(--border); border-radius:6px; background:none; color:var(--text-muted); cursor:pointer; padding:3px; margin-top:4px; }
 
-      .month-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:6px; }
+      /* Monthly view: a narrow sidebar (mini calendar + filters) next
+         to the main grid, same structure as the reference. */
+      .monthly-layout { display:grid; grid-template-columns: 250px 1fr; gap:18px; align-items:start; }
+      @media (max-width: 980px) { .monthly-layout { grid-template-columns: 1fr; } }
+      .monthly-sidebar { display:flex; flex-direction:column; gap:14px; position:sticky; top:0; }
+      @media (max-width: 980px) { .monthly-sidebar { position:static; } }
+      .monthly-main { display:flex; flex-direction:column; gap:16px; min-width:0; }
+
+      .mini-cal { background:var(--surface); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding:12px; }
+      .mini-cal-head { display:flex; align-items:center; justify-content:space-between; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; margin-bottom:8px; }
+      .mini-cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:2px; }
+      .mini-cal-dow { font-size:9.5px; font-weight:700; color:var(--text-muted); text-align:center; padding-bottom:3px; }
+      .mini-cal-cell { background:none; border:none; border-radius:6px; height:26px; font-size:11.5px; color:var(--text); cursor:pointer; font-family:'Inter',sans-serif; transition: background 0.1s ease; }
+      .mini-cal-cell:hover { background:var(--surface-2); }
+      .mini-cal-cell.outside { color:var(--text-muted); opacity:0.5; }
+      .mini-cal-cell.is-today { font-weight:700; color:var(--primary); }
+      .mini-cal-cell.is-selected { background:var(--primary); color:#fff; font-weight:700; }
+
+      .filter-panel { background:var(--surface); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding:12px; display:flex; flex-direction:column; gap:12px; }
+      .filter-section { display:flex; flex-direction:column; gap:6px; }
+      .filter-section-head { display:flex; align-items:center; gap:6px; background:none; border:none; padding:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12px; color:var(--text); cursor:pointer; text-align:left; }
+      .filter-row { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text); cursor:pointer; padding:2px 0 2px 19px; }
+      .filter-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+      .month-grid { display:grid; grid-template-columns: 26px repeat(7, 1fr); gap:6px; }
+      .month-week-num { font-size:10px; color:var(--text-muted); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; }
       .month-dow { font-size:11px; font-weight:700; color:var(--text-muted); text-align:center; padding-bottom:4px; }
       .month-cell { background:var(--surface); border:1px solid var(--border); border-radius:10px; min-height:74px; padding:6px; cursor:pointer; display:flex; flex-direction:column; gap:4px; }
       .month-cell.empty { background:none; border:none; }
@@ -287,22 +326,79 @@ export function GlobalStyle() {
       .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background: var(--text); color: var(--bg); padding:10px 18px; border-radius:10px; font-size:13px; font-weight:600; z-index:60; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
 
       /* ---------- Capture screen (paper-like rapid entry) ---------- */
-      .capture-screen { display:flex; flex-direction:column; height: calc(100vh - 100px); gap:14px; }
+      .capture-screen { display:flex; flex-direction:column; height: calc(100vh - 100px); gap:16px; }
       .capture-head { display:flex; justify-content:space-between; align-items:flex-end; }
-      .capture-hint-toggle { background:none; border:none; color:var(--text-muted); font-size:12px; cursor:pointer; text-decoration:underline; }
-      .capture-cheatsheet { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-size:11.5px; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:14px; }
-      .capture-cheatsheet b { color:var(--text); font-family:'IBM Plex Mono',monospace; }
+      .capture-hint-toggle { display:inline-flex; align-items:center; gap:4px; background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted); font-size:11.5px; font-weight:600; cursor:pointer; padding:7px 12px; border-radius:20px; transition: background 0.15s ease, color 0.15s ease; }
+      .capture-hint-toggle:hover { background:var(--border); color:var(--text); }
+      .capture-hint-toggle:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+      .capture-cheatsheet { background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; animation: chip-in 0.15s ease both; }
+      .cheatsheet-pill { display:inline-flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:5px 10px; font-size:11px; color:var(--text-muted); }
+      .cheatsheet-pill b { color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:500; }
+      .cheatsheet-note { font-size:11px; color:var(--text-muted); margin-left:auto; }
+      .cheatsheet-note b { color:var(--text); font-family:'IBM Plex Mono',monospace; }
       .capture-body { flex:1; display:grid; grid-template-columns: 1.4fr 1fr; gap:16px; min-height:0; }
       @media (max-width: 980px) { .capture-body { grid-template-columns: 1fr; } }
-      .capture-paper { position:relative; background: repeating-linear-gradient(var(--surface), var(--surface) 33px, var(--border) 34px); background-position: 0 26px; border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow:hidden; }
-      .capture-textarea { width:100%; height:100%; border:none; outline:none; resize:none; background:transparent; padding: 26px 26px 24px; font-family:'Space Grotesk', sans-serif; font-size:17px; line-height:34px; color:var(--text); }
-      .capture-textarea::placeholder { color: var(--text-muted); opacity:0.6; font-family:'Inter',sans-serif; font-size:14.5px; line-height:34px; }
+
+      /* The writing surface is styled exactly like every other card in
+         the app — same --surface/--border/--radius/--shadow tokens as
+         .task-row and .capture-preview — so this screen matches the
+         rest of the product instead of being a one-off skin. */
+      .capture-paper {
+        position:relative;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        transition: box-shadow 0.15s ease, border-color 0.15s ease;
+      }
+      .capture-paper:focus-within { border-color: var(--primary); box-shadow: var(--shadow), 0 0 0 3px var(--primary-soft); }
+      .capture-textarea { width:100%; height:100%; border:none; outline:none; background:transparent; padding: 18px 20px; font-family:'Inter', sans-serif; font-size:14.5px; line-height:1.75; color: var(--text); }
+      .capture-editable { overflow-y:auto; white-space:pre-wrap; word-wrap:break-word; cursor:text; }
+      .capture-editable:empty:before { content: attr(data-placeholder); color: var(--text-muted); font-size:14.5px; pointer-events:none; }
+      /* Small outlined badges — colored text + colored border + a
+         faint tint, not a solid fill — matching the compact status/
+         category badge convention from the reference (INQUIRY,
+         TENTATIVE, etc): understated, not "bubbly". */
+      .capture-chip { display:inline-flex; align-items:center; gap:5px; vertical-align:middle; margin:0 2px; padding:1px 8px 1px 7px; border-radius:6px; font-family:'Inter', sans-serif; font-weight:600; font-size:12.5px; line-height:1.6; user-select:none; }
+      .chip-category { background: color-mix(in srgb, var(--chip-color, var(--primary)) 10%, transparent); border: 1px solid color-mix(in srgb, var(--chip-color, var(--primary)) 30%, transparent); color: var(--chip-color, var(--primary)); }
+      .chip-dot { width:5px; height:5px; border-radius:50%; background: var(--chip-color, var(--primary)); flex-shrink:0; }
+      .chip-tag { background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); }
+      .capture-quickbar { display:flex; gap:6px; flex-wrap:wrap; background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding:7px; box-shadow: var(--shadow); }
+      .quickmark-btn { display:inline-flex; align-items:center; gap:5px; min-height:32px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0 11px; font-size:12px; font-weight:600; color:var(--text); cursor:pointer; font-family:'Inter', sans-serif; transition: background 0.15s ease, border-color 0.15s ease; }
+      .quickmark-btn:hover { background:var(--surface-2); border-color: var(--primary); }
+      .quickmark-btn:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+      .quickmark-char { font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--primary); font-size:12px; }
+      .capture-suggest { position:absolute; z-index:20; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow: var(--shadow); padding:4px; display:flex; flex-direction:column; gap:1px; min-width:150px; max-width:240px; max-height:220px; overflow-y:auto; animation: chip-in 0.12s ease both; }
+      .capture-suggest-item { display:flex; align-items:center; gap:7px; background:none; border:none; width:100%; min-height:32px; text-align:left; padding:6px 8px; border-radius:6px; font-family:'Inter', sans-serif; font-weight:500; font-size:12.5px; color:var(--text); cursor:pointer; transition: background 0.1s ease; }
+      .capture-suggest-item.active, .capture-suggest-item:hover { background:var(--surface-2); }
+      .suggest-swatch { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+      .suggest-hash { color:var(--text-muted); flex-shrink:0; }
       .capture-preview { background:var(--surface); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding:16px; display:flex; flex-direction:column; min-height:0; }
       .capture-preview-list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-top:10px; }
-      .capture-draft-chip { display:flex; align-items:center; gap:8px; border-left:3px solid var(--row-color); background:var(--surface-2); border-radius:8px; padding:7px 10px; font-size:12.5px; }
-      .capture-draft-chip .chip-meta { margin-left:auto; display:flex; gap:6px; font-size:10.5px; color:var(--text-muted); }
-      .capture-footer { display:flex; align-items:center; gap:10px; justify-content:space-between; }
+      .capture-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; flex:1; color:var(--text-muted); text-align:center; padding:30px 16px; }
+      .capture-empty svg { opacity:0.32; }
+      .capture-empty p { margin:0; font-weight:600; color:var(--text); font-size:13.5px; }
+      .capture-empty span { font-size:12px; max-width:220px; line-height:1.5; }
+      .capture-draft-chip { display:flex; align-items:center; gap:8px; border-left:3px solid var(--row-color); background:var(--surface-2); border-radius:8px; padding:8px 10px; font-size:12.5px; animation: chip-in 0.22s ease both; animation-delay: calc(var(--row-i, 0) * 25ms); }
+      .capture-draft-chip .chip-title { font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .capture-draft-chip .chip-meta { margin-left:auto; flex-shrink:0; display:flex; gap:6px; align-items:center; font-size:10.5px; color:var(--text-muted); }
+      .chip-priority { padding:1px 6px; border-radius:20px; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; font-size:9.5px; }
+      .chip-priority.pr-high { background:var(--danger-soft); color:var(--danger); }
+      .chip-priority.pr-medium { background:var(--warning-soft); color:var(--warning); }
+      .chip-priority.pr-low { background:var(--secondary-soft); color:var(--secondary); }
+      .capture-footer { display:flex; align-items:center; gap:10px; justify-content:space-between; flex-wrap:wrap; }
       .capture-kbd { font-family:'IBM Plex Mono',monospace; background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:2px 6px; font-size:11px; }
+      @keyframes chip-in { from { opacity:0; transform: translateY(-4px) scale(0.98); } to { opacity:1; transform: translateY(0) scale(1); } }
+      @media (max-width: 640px) {
+        .capture-textarea { font-size:14.5px; line-height:1.8; }
+        .capture-screen { height: calc(100vh - 130px); }
+        .cheatsheet-note { margin-left:0; width:100%; }
+        /* The quickbar's compact desktop sizing trades away touch-target
+           size for density — on a phone, where these buttons are the
+           primary way to insert shorthand, that tradeoff reverses. */
+        .quickmark-btn { min-height:44px; padding:0 14px; font-size:12.5px; }
+        .capture-suggest-item { min-height:44px; }
+      }
 
       /* ---------- Reminder bell ---------- */
       .reminder-bell { position: relative; }

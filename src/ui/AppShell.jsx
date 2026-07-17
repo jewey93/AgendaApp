@@ -16,14 +16,14 @@
  */
 import React, { useState } from "react";
 import {
-  Flame, Plus, X, Check, Trash2, Copy, ChevronLeft, ChevronRight, Search, Filter,
+  Flame, Plus, X, Check, Trash2, Copy, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Search, Filter,
   Moon, Sun, Timer, Sparkles, Droplet, Weight, BarChart3, CalendarDays, CalendarRange,
   Calendar, LayoutDashboard, Tag, Clock, StickyNote, Bell, Play, Pause, RotateCcw,
   Download, GripVertical, TrendingUp, Award, Edit3, LogOut, Feather, BookOpen, Menu,
 } from "lucide-react";
-import { CATEGORY_KEYS, CATEGORIES, PRIORITIES, RECURRENCE_OPTIONS } from "../domain/taskModel.js";
+import { CATEGORY_KEYS, CATEGORIES, PRIORITIES, PRIORITY_KEYS, RECURRENCE_OPTIONS } from "../domain/taskModel.js";
 import { generateId } from "../domain/id.js";
-import { todayISO, addDays, startOfWeek, monthKey, fmtDate, weekLabel } from "../domain/dateUtils.js";
+import { todayISO, addDays, startOfWeek, monthKey, fmtDate, weekLabel, isoWeekNumber } from "../domain/dateUtils.js";
 import { eventsOnDate, eventsTouchingMonth, EVENT_COLOR_TOKENS } from "../domain/eventModel.js";
 import { CATEGORY_VISUALS, PRIORITY_VISUALS, QUOTES, GlobalStyle } from "./theme.jsx";
 import CaptureView from "./CaptureView.jsx";
@@ -107,7 +107,7 @@ export default function AppShell({ state, userEmail, onLogout }) {
             onNewTask={() => setModal({ type: "task", data: { date: view === "today" ? today : selectedDate } })} />
         )}
 
-        {view === "capture" && <CaptureView addTasksFromCapture={addTasksFromCapture} />}
+        {view === "capture" && <CaptureView addTasksFromCapture={addTasksFromCapture} tasks={tasks} />}
 
         {view === "journal" && (
           <JournalView journalEntries={journalEntries} addJournalEntry={addJournalEntry} deleteJournalEntry={deleteJournalEntry} />
@@ -540,6 +540,114 @@ function WeeklyPlanner({ weekStart, setSelectedDate, tasks, onToggle, onEdit, on
 }
 
 /* ============================== MONTHLY PLANNER ============================== */
+// Compact date-picker: shows the same month as the main grid, plus
+// dimmed overflow days from the adjacent months so the grid always
+// fills a clean 6x7 block — same convention as the reference. Purely
+// a navigation aid: clicking a day moves the shared selectedDate/month
+// without leaving the Monthly view (unlike clicking a big-grid cell,
+// which drills into that day).
+function MiniCalendar({ month, selectedDate, onSelect, onShiftMonth }) {
+  const [y, m] = month.split("-").map(Number);
+  const first = new Date(y, m - 1, 1);
+  const startOffset = (first.getDay() + 6) % 7;
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const prevMonthDays = new Date(y, m - 1, 0).getDate();
+
+  const cells = [];
+  for (let i = startOffset - 1; i >= 0; i--) {
+    const d = prevMonthDays - i;
+    const dm = new Date(y, m - 2, d);
+    cells.push({ iso: dm.toISOString().slice(0, 10), day: d, outside: true });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ iso: `${month}-${String(d).padStart(2, "0")}`, day: d, outside: false });
+  }
+  let nextDay = 1;
+  while (cells.length % 7 !== 0 || cells.length < 42) {
+    const dm = new Date(y, m, nextDay);
+    cells.push({ iso: dm.toISOString().slice(0, 10), day: nextDay, outside: true });
+    nextDay++;
+    if (cells.length >= 42) break;
+  }
+
+  const today = todayISO();
+  return (
+    <div className="mini-cal">
+      <div className="mini-cal-head">
+        <button className="icon-btn tiny" onClick={() => onShiftMonth(-1)}><ChevronLeft size={13} /></button>
+        <span>{first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
+        <button className="icon-btn tiny" onClick={() => onShiftMonth(1)}><ChevronRight size={13} /></button>
+      </div>
+      <div className="mini-cal-grid">
+        {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((d) => <div key={d} className="mini-cal-dow">{d}</div>)}
+        {cells.map((c) => (
+          <button
+            key={c.iso}
+            className={
+              "mini-cal-cell" +
+              (c.outside ? " outside" : "") +
+              (c.iso === today ? " is-today" : "") +
+              (c.iso === selectedDate ? " is-selected" : "")
+            }
+            onClick={() => onSelect(c.iso)}
+          >
+            {c.day}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Collapsible checkbox groups for narrowing what the big grid shows —
+// same "Status / Spaces" filter-panel pattern as the reference, applied
+// to this app's actual data: category and priority instead of booking
+// status and physical spaces.
+function MonthlyFilters({ activeCategories, onToggleCategory, activePriorities, onTogglePriority }) {
+  const [openCat, setOpenCat] = useState(true);
+  const [openPri, setOpenPri] = useState(true);
+  return (
+    <div className="filter-panel">
+      <div className="filter-section">
+        <button className="filter-section-head" onClick={() => setOpenCat((s) => !s)}>
+          {openCat ? <ChevronUp size={13} /> : <ChevronDown size={13} />} Category
+        </button>
+        {openCat && CATEGORY_KEYS.map((key) => (
+          <label key={key} className="filter-row">
+            <button
+              type="button"
+              className={"checkbox tiny-cb" + (activeCategories.has(key) ? " checked" : "")}
+              onClick={() => onToggleCategory(key)}
+            >
+              {activeCategories.has(key) && <Check size={9} strokeWidth={3} />}
+            </button>
+            <span className="filter-dot" style={{ background: CATEGORY_VISUALS[key]?.color }} />
+            {CATEGORIES[key].label}
+          </label>
+        ))}
+      </div>
+      <div className="filter-section">
+        <button className="filter-section-head" onClick={() => setOpenPri((s) => !s)}>
+          {openPri ? <ChevronUp size={13} /> : <ChevronDown size={13} />} Priority
+        </button>
+        {openPri && PRIORITY_KEYS.map((key) => (
+          <label key={key} className="filter-row">
+            <button
+              type="button"
+              className={"checkbox tiny-cb" + (activePriorities.has(key) ? " checked" : "")}
+              onClick={() => onTogglePriority(key)}
+            >
+              {activePriorities.has(key) && <Check size={9} strokeWidth={3} />}
+            </button>
+            <span className="filter-dot" style={{ background: PRIORITY_VISUALS[key]?.color }} />
+            {PRIORITIES[key].label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MonthlyPlanner({ month, selectedDate, setSelectedDate, tasks, goals, events, addEvent, deleteEvent, onReschedule, onDayClick }) {
   const [y, m] = month.split("-").map(Number);
   const first = new Date(y, m - 1, 1);
@@ -548,11 +656,21 @@ function MonthlyPlanner({ month, selectedDate, setSelectedDate, tasks, goals, ev
   const cells = [];
   for (let i = 0; i < startOffset; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(`${month}-${String(d).padStart(2, "0")}`);
+  // Chunk into weeks so each row can carry its own ISO week number,
+  // matching the numbered rail down the side of the reference grid.
+  const weekRows = [];
+  for (let i = 0; i < cells.length; i += 7) weekRows.push(cells.slice(i, i + 7));
 
-  const monthTasks = tasks.filter((t) => t.date.startsWith(month));
+  const [activeCategories, setActiveCategories] = useState(() => new Set(CATEGORY_KEYS));
+  const [activePriorities, setActivePriorities] = useState(() => new Set(PRIORITY_KEYS));
+  const toggleCategory = (key) => setActiveCategories((s) => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const togglePriority = (key) => setActivePriorities((s) => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  const visibleTasks = tasks.filter((t) => activeCategories.has(t.category) && activePriorities.has(t.priority));
+
+  const monthTasks = visibleTasks.filter((t) => t.date.startsWith(month));
   const done = monthTasks.filter((t) => t.completed).length;
   const monthGoals = goals.filter((g) => g.targetDate && g.targetDate.startsWith(month));
-  const recurringActive = tasks.filter((t) => t.recurrence && t.recurrence !== "none");
+  const recurringActive = monthTasks.filter((t) => t.recurrence && t.recurrence !== "none");
   const monthEventList = eventsTouchingMonth(events, month);
 
   const [eventForm, setEventForm] = useState({ title: "", startDate: selectedDate, endDate: selectedDate, colorToken: "primary" });
@@ -569,90 +687,112 @@ function MonthlyPlanner({ month, selectedDate, setSelectedDate, tasks, goals, ev
 
   return (
     <div className="view-scroll">
-      <div className="date-nav">
-        <button className="icon-btn" onClick={() => shiftMonth(-1)}><ChevronLeft size={16} /></button>
-        <div className="date-nav-label">{first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</div>
-        <button className="icon-btn" onClick={() => shiftMonth(1)}><ChevronRight size={16} /></button>
-        <span className="empty-hint">Drag a task's dot onto another day to reschedule it.</span>
-      </div>
+      <div><div className="eyebrow">Calendar</div><h1 className="page-title">Monthly</h1></div>
+      <div className="monthly-layout">
+        <aside className="monthly-sidebar">
+          <MiniCalendar month={month} selectedDate={selectedDate} onSelect={setSelectedDate} onShiftMonth={shiftMonth} />
+          <MonthlyFilters
+            activeCategories={activeCategories} onToggleCategory={toggleCategory}
+            activePriorities={activePriorities} onTogglePriority={togglePriority}
+          />
+        </aside>
 
-      <div className="week-summary">
-        <div className="stat-pill"><Check size={14} /> {done}/{monthTasks.length} tasks this month</div>
-        <div className="stat-pill">{monthGoals.length} goals due</div>
-        <div className="stat-pill"><RotateCcw size={14} /> {recurringActive.length} recurring</div>
-      </div>
+        <div className="monthly-main">
+          <div className="date-nav">
+            <button className="icon-btn" onClick={() => shiftMonth(-1)}><ChevronLeft size={16} /></button>
+            <div className="date-nav-label">{first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</div>
+            <button className="icon-btn" onClick={() => shiftMonth(1)}><ChevronRight size={16} /></button>
+            <span className="empty-hint">Drag a task's dot onto another day to reschedule it.</span>
+          </div>
 
-      <div className="month-grid">
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => <div key={d} className="month-dow">{d}</div>)}
-        {cells.map((iso, idx) => {
-          if (!iso) return <div key={idx} className="month-cell empty" />;
-          const dayTasks = tasks.filter((t) => t.date === iso);
-          const dayEvents = eventsOnDate(events, iso);
-          const isToday = iso === todayISO();
-          return (
-            <div key={iso} className={"month-cell" + (isToday ? " is-today" : "")}
-              onClick={() => onDayClick(iso)}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const taskId = e.dataTransfer.getData("text/plain"); if (taskId) onReschedule(taskId, iso); }}
-            >
-              <div className="month-cell-date">{parseInt(iso.slice(-2), 10)}</div>
-              {dayEvents.length > 0 && (
-                <div className="month-cell-events">
-                  {dayEvents.slice(0, 2).map((e) => (
-                    <div key={e.id} className="month-event-bar" style={{ background: `var(--${e.colorToken})` }} title={e.title}>{e.title}</div>
+          <div className="week-summary">
+            <div className="stat-pill"><Check size={14} /> {done}/{monthTasks.length} tasks this month</div>
+            <div className="stat-pill">{monthGoals.length} goals due</div>
+            <div className="stat-pill"><RotateCcw size={14} /> {recurringActive.length} recurring</div>
+          </div>
+
+          <div className="month-grid">
+            <div className="month-week-num" />
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => <div key={d} className="month-dow">{d}</div>)}
+            {weekRows.map((row, ri) => {
+              const anchor = row.find((iso) => iso);
+              return (
+                <React.Fragment key={ri}>
+                  <div className="month-week-num">{anchor ? isoWeekNumber(anchor) : ""}</div>
+                  {row.map((iso, idx) => {
+                    if (!iso) return <div key={ri + "-" + idx} className="month-cell empty" />;
+                    const dayTasks = visibleTasks.filter((t) => t.date === iso);
+                    const dayEvents = eventsOnDate(events, iso);
+                    const isToday = iso === todayISO();
+                    return (
+                      <div key={iso} className={"month-cell" + (isToday ? " is-today" : "")}
+                        onClick={() => onDayClick(iso)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const taskId = e.dataTransfer.getData("text/plain"); if (taskId) onReschedule(taskId, iso); }}
+                      >
+                        <div className="month-cell-date">{parseInt(iso.slice(-2), 10)}</div>
+                        {dayEvents.length > 0 && (
+                          <div className="month-cell-events">
+                            {dayEvents.slice(0, 2).map((e) => (
+                              <div key={e.id} className="month-event-bar" style={{ background: `var(--${e.colorToken})` }} title={e.title}>{e.title}</div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="month-cell-dots">
+                          {dayTasks.slice(0, 4).map((t) => (
+                            <span key={t.id} className="month-dot" draggable
+                              style={{ background: CATEGORY_VISUALS[t.category]?.color, opacity: t.completed ? 0.35 : 1 }}
+                              onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData("text/plain", t.id); }}
+                              title={t.title}
+                            />
+                          ))}
+                        </div>
+                        {dayTasks.length > 4 && <div className="month-more">+{dayTasks.length - 4}</div>}
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          <div className="daily-grid">
+            <div className="mini-card">
+              <div className="card-head"><CalendarDays size={14} /><span>Events</span></div>
+              <div className="event-form">
+                <input placeholder="Event title…" value={eventForm.title} onChange={(e) => setEventForm((f) => ({ ...f, title: e.target.value }))} />
+                <div className="event-form-dates">
+                  <label><span>Starts</span><input type="date" value={eventForm.startDate} onChange={(e) => setEventForm((f) => ({ ...f, startDate: e.target.value }))} /></label>
+                  <label><span>Ends</span><input type="date" value={eventForm.endDate} onChange={(e) => setEventForm((f) => ({ ...f, endDate: e.target.value }))} /></label>
+                </div>
+                <div className="color-swatches">
+                  {EVENT_COLOR_TOKENS.map((tk) => (
+                    <button key={tk} className={"swatch" + (eventForm.colorToken === tk ? " active" : "")} style={{ background: `var(--${tk})` }} onClick={() => setEventForm((f) => ({ ...f, colorToken: tk }))} />
                   ))}
                 </div>
-              )}
-              <div className="month-cell-dots">
-                {dayTasks.slice(0, 4).map((t) => (
-                  <span key={t.id} className="month-dot" draggable
-                    style={{ background: CATEGORY_VISUALS[t.category]?.color, opacity: t.completed ? 0.35 : 1 }}
-                    onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData("text/plain", t.id); }}
-                    title={t.title}
-                  />
-                ))}
+                <button className="ghost-btn small" onClick={submitEvent}>Add event</button>
               </div>
-              {dayTasks.length > 4 && <div className="month-more">+{dayTasks.length - 4}</div>}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="daily-grid">
-        <div className="mini-card">
-          <div className="card-head"><CalendarDays size={14} /><span>Events</span></div>
-          <div className="event-form">
-            <input placeholder="Event title…" value={eventForm.title} onChange={(e) => setEventForm((f) => ({ ...f, title: e.target.value }))} />
-            <div className="event-form-dates">
-              <label><span>Starts</span><input type="date" value={eventForm.startDate} onChange={(e) => setEventForm((f) => ({ ...f, startDate: e.target.value }))} /></label>
-              <label><span>Ends</span><input type="date" value={eventForm.endDate} onChange={(e) => setEventForm((f) => ({ ...f, endDate: e.target.value }))} /></label>
-            </div>
-            <div className="color-swatches">
-              {EVENT_COLOR_TOKENS.map((tk) => (
-                <button key={tk} className={"swatch" + (eventForm.colorToken === tk ? " active" : "")} style={{ background: `var(--${tk})` }} onClick={() => setEventForm((f) => ({ ...f, colorToken: tk }))} />
+              {monthEventList.map((e) => (
+                <div key={e.id} className="week-goal-row">
+                  <span className="month-dot" style={{ background: `var(--${e.colorToken})` }} />
+                  <span style={{ flex: 1 }}>{e.title}</span>
+                  <span className="goal-pct">{e.startDate === e.endDate ? e.startDate.slice(5) : `${e.startDate.slice(5)}–${e.endDate.slice(5)}`}</span>
+                  <button className="icon-btn tiny danger" onClick={() => deleteEvent(e.id)}><X size={12} /></button>
+                </div>
               ))}
+              {monthEventList.length === 0 && <div className="empty-hint">No events this month.</div>}
             </div>
-            <button className="ghost-btn small" onClick={submitEvent}>Add event</button>
+            <div className="mini-card">
+              <div className="card-head"><span>Monthly goals</span></div>
+              {monthGoals.length === 0 ? <div className="empty-hint">No goals due this month.</div> :
+                monthGoals.map((g) => (
+                  <div key={g.id} className="week-goal-row">
+                    <span style={{ flex: 1 }}>{g.title}</span>
+                    <span className="goal-pct">{g.progress || 0}%</span>
+                  </div>
+                ))}
+            </div>
           </div>
-          {monthEventList.map((e) => (
-            <div key={e.id} className="week-goal-row">
-              <span className="month-dot" style={{ background: `var(--${e.colorToken})` }} />
-              <span style={{ flex: 1 }}>{e.title}</span>
-              <span className="goal-pct">{e.startDate === e.endDate ? e.startDate.slice(5) : `${e.startDate.slice(5)}–${e.endDate.slice(5)}`}</span>
-              <button className="icon-btn tiny danger" onClick={() => deleteEvent(e.id)}><X size={12} /></button>
-            </div>
-          ))}
-          {monthEventList.length === 0 && <div className="empty-hint">No events this month.</div>}
-        </div>
-        <div className="mini-card">
-          <div className="card-head"><span>Monthly goals</span></div>
-          {monthGoals.length === 0 ? <div className="empty-hint">No goals due this month.</div> :
-            monthGoals.map((g) => (
-              <div key={g.id} className="week-goal-row">
-                <span style={{ flex: 1 }}>{g.title}</span>
-                <span className="goal-pct">{g.progress || 0}%</span>
-              </div>
-            ))}
         </div>
       </div>
     </div>

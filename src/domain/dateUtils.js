@@ -43,3 +43,16 @@ export const weekLabel = (weekStartIso) =>
   `${new Date(weekStartIso + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${new Date(
     addDays(weekStartIso, 6) + "T00:00:00"
   ).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+
+// ISO 8601 week number (Monday-start weeks, week 1 = the week
+// containing the year's first Thursday). Used for the week-number
+// rail down the side of the monthly calendar grid.
+export const isoWeekNumber = (iso) => {
+  const d = new Date(iso + "T00:00:00");
+  const day = (d.getDay() + 6) % 7; // Monday = 0
+  d.setDate(d.getDate() - day + 3); // nearest Thursday
+  const firstThursday = new Date(d.getFullYear(), 0, 4);
+  const firstDay = (firstThursday.getDay() + 6) % 7;
+  firstThursday.setDate(firstThursday.getDate() - firstDay + 3);
+  return 1 + Math.round((d - firstThursday) / (7 * 24 * 60 * 60 * 1000));
+};
