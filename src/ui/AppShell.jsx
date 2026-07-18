@@ -57,10 +57,18 @@ export default function AppShell({ state, userEmail, onLogout }) {
 
   const tasksForDate = (iso) => tasks.filter((t) => t.date === iso);
   const today = todayISO();
-  const todayTasks = tasksForDate(today);
+  // Undone tasks from earlier days roll onto Today automatically instead
+  // of needing to be manually rescheduled. Each task's stored `date`
+  // never changes here — it just also shows up in Today's list (and in
+  // the Daily view when you're looking at today) until it's checked
+  // off, the same way Todoist/Things handle it. Past-dated views (an
+  // old Daily date, the Monthly grid) still show each task on its real
+  // original day, so history stays accurate.
+  const overdue = tasks.filter((t) => !t.completed && t.date < today);
+  const todayTasks = [...overdue, ...tasksForDate(today)];
+  const tasksForDateWithCarryover = (iso) => (iso === today ? todayTasks : tasksForDate(iso));
   const completedToday = todayTasks.filter((t) => t.completed).length;
   const pctToday = todayTasks.length ? Math.round((completedToday / todayTasks.length) * 100) : 0;
-  const overdue = tasks.filter((t) => !t.completed && t.date < today);
   const quoteOfDay = QUOTES[new Date().getDate() % QUOTES.length];
 
   const filteredTasks = (list) => list.filter((t) => {
@@ -126,7 +134,7 @@ export default function AppShell({ state, userEmail, onLogout }) {
         {view === "daily" && (
           <DailyPlanner
             date={selectedDate} setDate={setSelectedDate}
-            tasks={filteredTasks(tasksForDate(selectedDate))}
+            tasks={filteredTasks(tasksForDateWithCarryover(selectedDate))}
             onToggle={toggleComplete} onEdit={(t) => setModal({ type: "task", data: t })}
             onAdd={() => setModal({ type: "task", data: { date: selectedDate } })}
             notes={dayNotes[selectedDate] || { notes: "", reflection: "" }}
@@ -321,7 +329,7 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
           </div>
           <div className="htd-progress"><div className="htd-progress-fill" style={{ width: `${haveToDo.length ? (htdDone / haveToDo.length) * 100 : 0}%` }} /></div>
           <div className="htd-list">
-            {haveToDo.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onReorder={onReorder} compact htd />)}
+            {haveToDo.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onReorder={onReorder} compact htd todayIso={today} />)}
           </div>
         </section>
       )}
@@ -337,7 +345,7 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
                 <button className="icon-btn tiny" onClick={() => onAdd(c)}><Plus size={14} /></button>
               </div>
               {list.length === 0 ? <div className="empty-hint">Nothing here yet.</div> :
-                list.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onReorder={onReorder} />)}
+                list.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onReorder={onReorder} todayIso={today} />)}
             </section>
           );
         })}
@@ -347,7 +355,7 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
         <section className="completed-strip">
           <div className="cat-title muted"><Check size={15} /> Completed today ({completed.length})</div>
           <div className="completed-list">
-            {completed.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onReorder={onReorder} compact done />)}
+            {completed.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onReorder={onReorder} compact done todayIso={today} />)}
           </div>
         </section>
       )}
@@ -356,9 +364,12 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
 }
 
 /* ============================== TASK ROW ============================== */
-function TaskRow({ task, onToggle, onEdit, onDelete, onDuplicate, onReorder, compact }) {
+function TaskRow({ task, onToggle, onEdit, onDelete, onDuplicate, onReorder, compact, todayIso }) {
   const visuals = CATEGORY_VISUALS[task.category] || CATEGORY_VISUALS.personal;
   const [dragOver, setDragOver] = useState(false);
+  // todayIso is only passed in by views showing "today's list" — if the
+  // task's real date doesn't match, it rolled over from an earlier day.
+  const carriedOver = todayIso && task.date !== todayIso;
   return (
     <div
       className={"task-row" + (task.completed ? " task-done" : "") + (compact ? " compact" : "") + (dragOver ? " drag-over" : "")}
@@ -379,6 +390,7 @@ function TaskRow({ task, onToggle, onEdit, onDelete, onDuplicate, onReorder, com
           {task.priority && <span className="prio-dot" style={{ background: PRIORITY_VISUALS[task.priority]?.color }} title={PRIORITIES[task.priority]?.label} />}
         </div>
         <div className="task-meta">
+          {carriedOver && <span className="carried-tag" title={`Originally scheduled for ${task.date}`}><Bell size={10} /> Carried over</span>}
           {task.dueTime && <span><Clock size={11} /> {task.dueTime}</span>}
           {task.duration ? <span>{task.duration}m</span> : null}
           {task.recurrence && task.recurrence !== "none" && <span className="recur-tag">{RECURRENCE_OPTIONS.find((r) => r.key === task.recurrence)?.label}</span>}
@@ -400,6 +412,10 @@ function DailyPlanner({ date, setDate, tasks, onToggle, onEdit, onAdd, notes, se
   const hours = Array.from({ length: 15 }, (_, i) => i + 6);
   const timed = tasks.filter((t) => t.dueTime);
   const untimed = tasks.filter((t) => !t.dueTime);
+  // Only flag carried-over tasks when actually looking at today — an
+  // old Daily date should read as an accurate historical record, not
+  // get flagged against itself.
+  const todayIso = date === todayISO() ? date : undefined;
   return (
     <div className="view-scroll">
       <DateNav date={date} setDate={setDate} label={fmtDate(date)} />
@@ -421,6 +437,7 @@ function DailyPlanner({ date, setDate, tasks, onToggle, onEdit, onAdd, notes, se
                       <div key={t.id} className="spine-task" style={{ "--row-color": CATEGORY_VISUALS[t.category]?.color }} onClick={() => onEdit(t)}>
                         <button className={"checkbox tiny-cb" + (t.completed ? " checked" : "")} onClick={(e) => { e.stopPropagation(); onToggle(t.id); }}>{t.completed && <Check size={10} strokeWidth={3} />}</button>
                         <span className={t.completed ? "strike" : ""}>{t.title}</span>
+                        {todayIso && t.date !== todayIso && <span className="carried-tag" title={`Originally scheduled for ${t.date}`}><Bell size={9} /></span>}
                         <span className="spine-cat">{CATEGORIES[t.category]?.label}</span>
                       </div>
                     ))}
@@ -432,7 +449,7 @@ function DailyPlanner({ date, setDate, tasks, onToggle, onEdit, onAdd, notes, se
           {untimed.length > 0 && (
             <div className="untimed-block">
               <div className="untimed-title">Anytime today</div>
-              {untimed.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={() => {}} onDuplicate={() => {}} compact />)}
+              {untimed.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={() => {}} onDuplicate={() => {}} compact todayIso={todayIso} />)}
             </div>
           )}
         </div>
@@ -441,7 +458,7 @@ function DailyPlanner({ date, setDate, tasks, onToggle, onEdit, onAdd, notes, se
           <div className="mini-card">
             <div className="card-head"><span>Priority tasks</span></div>
             {tasks.filter((t) => t.priority === "high").length === 0 ? <div className="empty-hint">No high-priority tasks.</div> :
-              tasks.filter((t) => t.priority === "high").map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={() => {}} onDuplicate={() => {}} compact />)}
+              tasks.filter((t) => t.priority === "high").map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={() => {}} onDuplicate={() => {}} compact todayIso={todayIso} />)}
           </div>
           <div className="mini-card">
             <div className="card-head"><StickyNote size={14} /><span>Daily notes</span></div>

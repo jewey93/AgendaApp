@@ -197,6 +197,7 @@ export function GlobalStyle() {
       .task-meta span { display:flex; align-items:center; gap:3px; }
       .recur-tag { background: var(--surface-2); padding:1px 6px; border-radius:8px; }
       .tag-chip { background: var(--primary-soft); color: var(--primary); padding:1px 6px; border-radius:8px; }
+      .carried-tag { display:inline-flex; align-items:center; gap:3px; background: var(--warning-soft); color: var(--warning); padding:1px 6px; border-radius:8px; font-weight:600; }
       .task-notes { font-size:11px; color:var(--text-muted); margin-top:3px; display:flex; gap:4px; }
       .task-actions { display:flex; gap:3px; opacity:0; transition:opacity .15s; }
       .task-row:hover .task-actions { opacity:1; }
