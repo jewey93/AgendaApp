@@ -64,7 +64,15 @@ export default function AppShell({ state, userEmail, onLogout }) {
   // off, the same way Todoist/Things handle it. Past-dated views (an
   // old Daily date, the Monthly grid) still show each task on its real
   // original day, so history stays accurate.
-  const overdue = tasks.filter((t) => !t.completed && t.date < today);
+  //
+  // Recurring tasks are deliberately excluded: the recurrence engine
+  // below already generates today's own fresh occurrence of a daily/
+  // weekly/etc series, so carrying yesterday's undone instance forward
+  // too would show the same-titled task twice — one carried over, one
+  // freshly generated. A missed occurrence of a recurring task is a
+  // historical fact (visible on its real day / in Stats), not something
+  // that should pile up in Today.
+  const overdue = tasks.filter((t) => !t.completed && t.date < today && (!t.recurrence || t.recurrence === "none"));
   const todayTasks = [...overdue, ...tasksForDate(today)];
   const tasksForDateWithCarryover = (iso) => (iso === today ? todayTasks : tasksForDate(iso));
   const completedToday = todayTasks.filter((t) => t.completed).length;

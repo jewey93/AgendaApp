@@ -57,12 +57,25 @@ export function useAgendaState(encryptionKey) {
   const [pomodoro, setPomodoro] = useState(DEFAULT_POMODORO);
   const [toast, setToast] = useState(null);
   const recurrenceCheckedRef = useRef(false);
+  // React.StrictMode (see main.jsx) intentionally mounts every component
+  // twice in dev to surface effects that aren't safe to run more than
+  // once. The load effect below has no cleanup, so without this guard
+  // it fires its async load a second, fully redundant time on every dev
+  // reload — and if that second load resolves AFTER the recurrence
+  // effect has already appended today's generated occurrence, its
+  // `setTasks(...)` overwrites state with the pre-generation data,
+  // silently discarding the new occurrence before it's ever saved. The
+  // next reload then generates another one — which is what produced
+  // repeated "30 min run" tasks piling up. Guarding by encryptionKey
+  // makes the load idempotent per key, closing the race at its source.
+  const loadedKeyRef = useRef(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
 
   // ---- load once on mount (waits for the encryption key) ----
   useEffect(() => {
-    if (!encryptionKey) return;
+    if (!encryptionKey || loadedKeyRef.current === encryptionKey) return;
+    loadedKeyRef.current = encryptionKey;
     (async () => {
       try {
         const d = await loadAgendaData(encryptionKey);
@@ -100,7 +113,11 @@ export function useAgendaState(encryptionKey) {
   useEffect(() => {
     if (!ready || !encryptionKey) return;
     const h = setTimeout(() => {
-      saveAgendaData({ tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro }, encryptionKey).catch(() => {});
+      // A failed save used to fail completely silently, which made
+      // symptoms like "my changes don't survive a refresh" impossible to
+      // diagnose from the console. Now it's at least logged.
+      saveAgendaData({ tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro }, encryptionKey)
+        .catch((e) => console.error("Failed to save agenda data:", e));
     }, 400);
     return () => clearTimeout(h);
   }, [tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro, ready, encryptionKey]);
