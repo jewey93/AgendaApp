@@ -177,8 +177,25 @@ export function useAgendaState(encryptionKey) {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
   }, []);
 
+  /**
+   * Deleting a task that belongs to a recurring series removes the
+   * WHOLE series, not just today's instance. Without this, the
+   * recurrence engine (see domain/recurrenceModel.js) has no concept
+   * of "this series was cancelled" — on the next load it just sees a
+   * series with no occurrence dated today and regenerates one, so a
+   * deleted recurring task would silently reappear after a refresh.
+   * Deleting every instance sharing the same seriesId closes that gap:
+   * there's no root left for the generator to regenerate from.
+   */
   const deleteTask = useCallback((id) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+    setTasks((prev) => {
+      const target = prev.find((t) => t.id === id);
+      if (!target) return prev;
+      const isRecurring = target.recurrence && target.recurrence !== "none";
+      if (!isRecurring) return prev.filter((t) => t.id !== id);
+      const seriesId = target.seriesId || target.id;
+      return prev.filter((t) => (t.seriesId || t.id) !== seriesId);
+    });
     showToast("Task deleted");
   }, []);
 
