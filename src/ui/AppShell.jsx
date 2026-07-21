@@ -35,7 +35,7 @@ export default function AppShell({ state, userEmail, onLogout }) {
   const {
     ready, tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro, toast,
     setFitness, setDayNotes, setWeekGoals, setDark, setPomodoro,
-    addTask, addTasksFromCapture, updateTask, deleteTask, duplicateTask, toggleComplete, reorderTasks, rescheduleTask,
+    addTask, addTasksFromCapture, updateTask, deleteTask, duplicateTask, toggleComplete, reorderTasks, moveTaskToCategory, rescheduleTask,
     saveGoal, deleteGoal, toggleMilestone, toggleLinkedTask,
     addJournalEntry, updateJournalEntry, deleteJournalEntry,
     addEvent, deleteEvent,
@@ -135,7 +135,7 @@ export default function AppShell({ state, userEmail, onLogout }) {
             overdue={overdue} quote={quoteOfDay} streak={streak}
             onToggle={toggleComplete} onEdit={(t) => setModal({ type: "task", data: t })}
             onDelete={deleteTask} onDuplicate={duplicateTask} onAdd={(cat) => setModal({ type: "task", data: { category: cat, date: today } })}
-            onReorder={reorderTasks}
+            onReorder={reorderTasks} onMoveToCategory={moveTaskToCategory}
           />
         )}
 
@@ -299,11 +299,17 @@ function TopBar({ query, setQuery, filterCat, setFilterCat, onNewTask }) {
 }
 
 /* ============================== TODAY VIEW ============================== */
-function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote, streak, onToggle, onEdit, onDelete, onDuplicate, onAdd, onReorder }) {
-  const haveToDo = todayTasks.filter((t) => t.category === "haveToDo").slice(0, 5);
-  const completed = todayTasks.filter((t) => t.completed);
-  const active = todayTasks.filter((t) => !t.completed);
+// Completed tasks aren't pulled out of their category — they just sink to
+// the bottom of it (still checked off, still visible) so everything for a
+// given category stays together instead of jumping into a separate section
+// far down the page. Array.prototype.sort is stable, so within "still
+// active" and "already done" the original order is preserved.
+const sortDoneToBottom = (list) => [...list].sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1));
+
+function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote, streak, onToggle, onEdit, onDelete, onDuplicate, onAdd, onReorder, onMoveToCategory }) {
+  const haveToDo = sortDoneToBottom(todayTasks.filter((t) => t.category === "haveToDo")).slice(0, 5);
   const htdDone = haveToDo.filter((t) => t.completed).length;
+  const [htdDragOver, setHtdDragOver] = useState(false);
 
   return (
     <div className="view-scroll">
@@ -336,38 +342,50 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
             <span className="htd-count">{htdDone}/{haveToDo.length}</span>
           </div>
           <div className="htd-progress"><div className="htd-progress-fill" style={{ width: `${haveToDo.length ? (htdDone / haveToDo.length) * 100 : 0}%` }} /></div>
-          <div className="htd-list">
+          <div
+            className={"htd-list" + (htdDragOver ? " drag-over" : "")}
+            onDragOver={(e) => { e.preventDefault(); setHtdDragOver(true); }}
+            onDragLeave={() => setHtdDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setHtdDragOver(false); const fromId = e.dataTransfer.getData("text/plain"); if (fromId && onMoveToCategory) onMoveToCategory(fromId, "haveToDo"); }}
+          >
             {haveToDo.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onReorder={onReorder} compact htd todayIso={today} />)}
           </div>
         </section>
       )}
 
       <div className="cat-grid">
-        {CATEGORY_KEYS.filter((c) => c !== "haveToDo").map((c) => {
-          const list = active.filter((t) => t.category === c);
-          const Icon = CATEGORY_VISUALS[c].icon;
-          return (
-            <section key={c} className="cat-card" style={{ "--cat-color": CATEGORY_VISUALS[c].color, "--cat-soft": CATEGORY_VISUALS[c].soft }}>
-              <div className="cat-card-head">
-                <div className="cat-title"><Icon size={16} /> {CATEGORIES[c].label}</div>
-                <button className="icon-btn tiny" onClick={() => onAdd(c)}><Plus size={14} /></button>
-              </div>
-              {list.length === 0 ? <div className="empty-hint">Nothing here yet.</div> :
-                list.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onReorder={onReorder} todayIso={today} />)}
-            </section>
-          );
-        })}
+        {CATEGORY_KEYS.filter((c) => c !== "haveToDo").map((c) => (
+          <CategoryCard
+            key={c} category={c} tasks={todayTasks.filter((t) => t.category === c)} today={today}
+            onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate}
+            onReorder={onReorder} onMoveToCategory={onMoveToCategory} onAdd={onAdd}
+          />
+        ))}
       </div>
-
-      {completed.length > 0 && (
-        <section className="completed-strip">
-          <div className="cat-title muted"><Check size={15} /> Completed today ({completed.length})</div>
-          <div className="completed-list">
-            {completed.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onReorder={onReorder} compact done todayIso={today} />)}
-          </div>
-        </section>
-      )}
     </div>
+  );
+}
+
+/* ============================== CATEGORY CARD (drag-and-drop target) ============================== */
+function CategoryCard({ category, tasks, today, onToggle, onEdit, onDelete, onDuplicate, onReorder, onMoveToCategory, onAdd }) {
+  const [dragOver, setDragOver] = useState(false);
+  const list = sortDoneToBottom(tasks);
+  const Icon = CATEGORY_VISUALS[category].icon;
+  return (
+    <section
+      className={"cat-card" + (dragOver ? " drag-over" : "")}
+      style={{ "--cat-color": CATEGORY_VISUALS[category].color, "--cat-soft": CATEGORY_VISUALS[category].soft }}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); const fromId = e.dataTransfer.getData("text/plain"); if (fromId && onMoveToCategory) onMoveToCategory(fromId, category); }}
+    >
+      <div className="cat-card-head">
+        <div className="cat-title"><Icon size={16} /> {CATEGORIES[category].label}</div>
+        <button className="icon-btn tiny" onClick={() => onAdd(category)}><Plus size={14} /></button>
+      </div>
+      {list.length === 0 ? <div className="empty-hint">Drag a task here, or nothing's here yet.</div> :
+        list.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onReorder={onReorder} todayIso={today} />)}
+    </section>
   );
 }
 
@@ -386,7 +404,7 @@ function TaskRow({ task, onToggle, onEdit, onDelete, onDuplicate, onReorder, com
       onDragStart={(e) => e.dataTransfer.setData("text/plain", task.id)}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => { e.preventDefault(); setDragOver(false); const fromId = e.dataTransfer.getData("text/plain"); if (fromId && onReorder) onReorder(fromId, task.id); }}
+      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); const fromId = e.dataTransfer.getData("text/plain"); if (fromId && onReorder) onReorder(fromId, task.id); }}
     >
       <span className="drag-handle"><GripVertical size={13} /></span>
       <button className={"checkbox" + (task.completed ? " checked" : "")} onClick={() => onToggle(task.id)}>

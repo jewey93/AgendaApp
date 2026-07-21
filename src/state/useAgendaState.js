@@ -216,16 +216,52 @@ export function useAgendaState(encryptionKey) {
     }));
   }, []);
 
+  /**
+   * Drag-and-drop reorder. Dropping a task onto another task's row
+   * moves it next to that task — and if the target belongs to a
+   * different category, the dragged task is reassigned to that
+   * category too. That's what makes dragging a task from the "Work"
+   * card onto the "Personal" card actually move it into Personal,
+   * instead of just shuffling its position while the category label
+   * stays the same.
+   */
   const reorderTasks = useCallback((fromId, toId) => {
     setTasks((prev) => {
+      if (fromId === toId) return prev;
       const arr = [...prev];
       const fromIdx = arr.findIndex((t) => t.id === fromId);
       const toIdx = arr.findIndex((t) => t.id === toId);
       if (fromIdx < 0 || toIdx < 0) return prev;
+      const toTask = arr[toIdx];
       const [moved] = arr.splice(fromIdx, 1);
-      arr.splice(toIdx, 0, moved);
+      const updated = moved.category === toTask.category ? moved : { ...moved, category: toTask.category };
+      const insertAt = arr.findIndex((t) => t.id === toId);
+      arr.splice(insertAt, 0, updated);
       return arr;
     });
+  }, []);
+
+  /**
+   * Companion to reorderTasks for dropping a task onto a category card
+   * itself (empty space, not a specific row) — reassigns its category
+   * and settles it at the end of that category's group so it lands
+   * visually at the bottom of the target card.
+   */
+  const moveTaskToCategory = useCallback((id, category) => {
+    setTasks((prev) => {
+      const idx = prev.findIndex((t) => t.id === id);
+      if (idx < 0 || prev[idx].category === category) return prev;
+      const arr = [...prev];
+      const [moved] = arr.splice(idx, 1);
+      const updated = { ...moved, category };
+      let insertAt = arr.length;
+      for (let i = arr.length - 1; i >= 0; i--) {
+        if (arr[i].category === category) { insertAt = i + 1; break; }
+      }
+      arr.splice(insertAt, 0, updated);
+      return arr;
+    });
+    showToast("Task moved");
   }, []);
 
   /**
@@ -288,7 +324,7 @@ export function useAgendaState(encryptionKey) {
   return {
     ready, tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro, toast,
     setFitness, setDayNotes, setWeekGoals, setDark, setPomodoro,
-    addTask, addTasksFromCapture, updateTask, deleteTask, duplicateTask, toggleComplete, reorderTasks, rescheduleTask,
+    addTask, addTasksFromCapture, updateTask, deleteTask, duplicateTask, toggleComplete, reorderTasks, moveTaskToCategory, rescheduleTask,
     saveGoal, deleteGoal, toggleMilestone, toggleLinkedTask,
     addJournalEntry, updateJournalEntry, deleteJournalEntry,
     addEvent, deleteEvent,

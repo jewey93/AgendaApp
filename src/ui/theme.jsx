@@ -167,18 +167,17 @@ export function GlobalStyle() {
       .htd-count { margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:12px; color: var(--text-muted); }
       .htd-progress { height:6px; background: var(--border); border-radius:4px; overflow:hidden; margin-bottom:12px; }
       .htd-progress-fill { height:100%; background: var(--accent); transition: width .4s ease; }
-      .htd-list { display:flex; flex-direction:column; gap:6px; }
+      .htd-list { display:flex; flex-direction:column; gap:6px; transition: outline-color .15s, background .15s; outline: 2px dashed transparent; outline-offset: 2px; border-radius: var(--radius); }
+      .htd-list.drag-over { outline-color: var(--accent); background: var(--surface-2); }
 
       .cat-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
-      .cat-card { background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--cat-color); border-radius: var(--radius); padding:14px 16px; box-shadow: var(--shadow); display:flex; flex-direction:column; gap:8px; min-height:120px; }
+      .cat-card { background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--cat-color); border-radius: var(--radius); padding:14px 16px; box-shadow: var(--shadow); display:flex; flex-direction:column; gap:8px; min-height:120px; transition: outline-color .15s, background .15s; outline: 2px dashed transparent; outline-offset: 2px; }
+      .cat-card.drag-over { outline-color: var(--cat-color); background: var(--cat-soft); }
       .cat-card-head { display:flex; justify-content:space-between; align-items:center; }
       .cat-title { display:flex; align-items:center; gap:7px; font-weight:700; font-size:13.5px; color: var(--cat-color); font-family:'Space Grotesk',sans-serif; }
       .cat-title.muted { color: var(--text-muted); }
       .empty-hint { color: var(--text-muted); font-size:12.5px; padding: 8px 2px; }
       .empty-hint.big { padding: 30px; text-align:center; background:var(--surface); border:1px dashed var(--border); border-radius:var(--radius); }
-
-      .completed-strip { background: var(--surface-2); border-radius: var(--radius); padding:14px 16px; }
-      .completed-list { display:flex; flex-direction:column; gap:4px; margin-top:8px; }
 
       .task-row { display:flex; align-items:flex-start; gap:8px; background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--row-color); border-radius:10px; padding:9px 10px; cursor:default; transition: background .15s, opacity .3s; }
       .task-row.compact { padding:6px 8px; }
