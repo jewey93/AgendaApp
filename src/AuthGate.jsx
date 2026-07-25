@@ -106,11 +106,11 @@ export default function AuthGate() {
           <form onSubmit={submitNewPassword}>
             <label>
               <span>New password</span>
-              <input type="password" required minLength={6} autoFocus value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 6 characters" />
+              <input type="password" autoComplete="new-password" required minLength={6} autoFocus value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 6 characters" />
             </label>
             <label>
               <span>Confirm new password</span>
-              <input type="password" required minLength={6} value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+              <input type="password" autoComplete="new-password" required minLength={6} value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
             </label>
             <button type="submit" disabled={busy}>
               <KeyRound size={16} /> {busy ? "Updating…" : "Update password"}
@@ -133,7 +133,7 @@ export default function AuthGate() {
             <form onSubmit={submitForgotPassword}>
               <label>
                 <span>Email</span>
-                <input type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+                <input type="email" autoComplete="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               </label>
               <button type="submit" disabled={busy}>
                 <KeyRound size={16} /> {busy ? "Sending…" : "Send reset link"}
@@ -159,11 +159,11 @@ export default function AuthGate() {
           <form onSubmit={submit}>
             <label>
               <span>Email</span>
-              <input type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+              <input type="email" autoComplete="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
             </label>
             <label>
               <span>Password</span>
-              <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" />
+              <input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" />
             </label>
             <button type="submit" disabled={busy}>
               {mode === "login" ? <LogIn size={16} /> : <UserPlus size={16} />}

@@ -30,6 +30,15 @@
  * no-persistence guarantee across sessions still holds; the tradeoff is
  * narrower than that: a refresh on a left-open, already-unlocked tab no
  * longer re-locks it. Cleared explicitly on logout (see handleLogout).
+ *
+ * A second, OPT-IN exception: checking "Remember this device" also
+ * writes the passphrase into localStorage, which — unlike
+ * sessionStorage — survives closing the browser entirely. That trades
+ * away the "re-enter every new tab/session" friction in exchange for
+ * "anyone with access to this unlocked browser profile can open your
+ * data without the passphrase," which is why it's opt-in and off by
+ * default rather than the new normal. Logging out clears both stores,
+ * so a device stops being trusted the moment you explicitly log out.
  * ------------------------------------------------------------------
  */
 import React, { useState, useEffect } from "react";
@@ -39,6 +48,7 @@ import { generateSalt, createEncryptionKey } from "./data/crypto.js";
 import App from "./App.jsx";
 
 const SESSION_PASSPHRASE_KEY = "agenda:session-passphrase";
+const LOCAL_PASSPHRASE_KEY = "agenda:remembered-passphrase";
 
 export default function EncryptionGate({ session, onLogout }) {
   const [phase, setPhase] = useState("checking"); // checking | setup | unlock | ready
@@ -46,6 +56,7 @@ export default function EncryptionGate({ session, onLogout }) {
   const [passphrase, setPassphrase] = useState("");
   const [confirmPassphrase, setConfirmPassphrase] = useState("");
   const [showPassphrase, setShowPassphrase] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState(null);
@@ -57,10 +68,12 @@ export default function EncryptionGate({ session, onLogout }) {
         if (!existing) { setSalt(null); setPhase("setup"); return; }
         setSalt(existing);
 
-        // A passphrase cached from earlier this same tab session means
-        // this is very likely a refresh, not a new visit — try it
-        // silently before falling back to asking again.
-        const cached = sessionStorage.getItem(SESSION_PASSPHRASE_KEY);
+        // Check the longer-lived "remembered on this device" store first,
+        // then fall back to the tab-scoped session cache — either one
+        // means this is very likely a returning visit, not a new one, so
+        // it's worth trying silently before falling back to asking again.
+        const remembered = localStorage.getItem(LOCAL_PASSPHRASE_KEY);
+        const cached = remembered || sessionStorage.getItem(SESSION_PASSPHRASE_KEY);
         if (cached) {
           try {
             const key = await createEncryptionKey(cached, existing);
@@ -69,7 +82,9 @@ export default function EncryptionGate({ session, onLogout }) {
             setPhase("ready");
             return;
           } catch {
-            sessionStorage.removeItem(SESSION_PASSPHRASE_KEY); // stale/invalid — don't keep retrying it
+            // stale/invalid — don't keep retrying it
+            sessionStorage.removeItem(SESSION_PASSPHRASE_KEY);
+            localStorage.removeItem(LOCAL_PASSPHRASE_KEY);
           }
         }
         setPhase("unlock");
@@ -78,6 +93,16 @@ export default function EncryptionGate({ session, onLogout }) {
       }
     })();
   }, []);
+
+  // Shared by both setup and unlock: sessionStorage always gets the
+  // passphrase (so a same-tab refresh never re-locks), and localStorage
+  // only gets it when "Remember this device" was checked (so it survives
+  // closing the browser entirely).
+  const cachePassphrase = (value) => {
+    sessionStorage.setItem(SESSION_PASSPHRASE_KEY, value);
+    if (rememberDevice) localStorage.setItem(LOCAL_PASSPHRASE_KEY, value);
+    else localStorage.removeItem(LOCAL_PASSPHRASE_KEY);
+  };
 
   const handleSetup = async (e) => {
     e.preventDefault();
@@ -89,7 +114,7 @@ export default function EncryptionGate({ session, onLogout }) {
       const newSalt = generateSalt();
       const key = await createEncryptionKey(passphrase, newSalt);
       await saveSalt(newSalt);
-      sessionStorage.setItem(SESSION_PASSPHRASE_KEY, passphrase);
+      cachePassphrase(passphrase);
       setEncryptionKey(key);
       setPhase("ready");
     } catch (e) {
@@ -106,7 +131,7 @@ export default function EncryptionGate({ session, onLogout }) {
     try {
       const key = await createEncryptionKey(passphrase, salt);
       await loadAgendaData(key); // throws if the passphrase is wrong — see crypto.js
-      sessionStorage.setItem(SESSION_PASSPHRASE_KEY, passphrase);
+      cachePassphrase(passphrase);
       setEncryptionKey(key);
       setPhase("ready");
     } catch (e) {
@@ -118,6 +143,7 @@ export default function EncryptionGate({ session, onLogout }) {
 
   const handleLogout = () => {
     sessionStorage.removeItem(SESSION_PASSPHRASE_KEY);
+    localStorage.removeItem(LOCAL_PASSPHRASE_KEY);
     onLogout?.();
   };
 
@@ -143,7 +169,7 @@ export default function EncryptionGate({ session, onLogout }) {
               <label>
                 <span>Create a passphrase</span>
                 <div className="pass-field">
-                  <input type={showPassphrase ? "text" : "password"} autoFocus required value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="At least 8 characters" />
+                  <input type={showPassphrase ? "text" : "password"} name="encryption-passphrase" autoComplete="new-password" autoFocus required value={passphrase} onChange={(e) => setPassphrase(e.target.value)} placeholder="At least 8 characters" />
                   <button type="button" className="pass-toggle" onClick={() => setShowPassphrase((s) => !s)} aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}>
                     {showPassphrase ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -151,7 +177,11 @@ export default function EncryptionGate({ session, onLogout }) {
               </label>
               <label>
                 <span>Confirm passphrase</span>
-                <input type={showPassphrase ? "text" : "password"} required value={confirmPassphrase} onChange={(e) => setConfirmPassphrase(e.target.value)} />
+                <input type={showPassphrase ? "text" : "password"} name="encryption-passphrase-confirm" autoComplete="new-password" required value={confirmPassphrase} onChange={(e) => setConfirmPassphrase(e.target.value)} />
+              </label>
+              <label className="remember-row">
+                <input type="checkbox" checked={rememberDevice} onChange={(e) => setRememberDevice(e.target.checked)} />
+                <span>Remember this device — skip re-entering this passphrase here next time. Only use this on a device you trust.</span>
               </label>
               <button type="submit" disabled={busy}><Lock size={16} /> {busy ? "Setting up…" : "Encrypt and continue"}</button>
             </form>
@@ -167,11 +197,15 @@ export default function EncryptionGate({ session, onLogout }) {
               <label>
                 <span>Passphrase</span>
                 <div className="pass-field">
-                  <input type={showPassphrase ? "text" : "password"} autoFocus required value={passphrase} onChange={(e) => setPassphrase(e.target.value)} />
+                  <input type={showPassphrase ? "text" : "password"} name="encryption-passphrase" autoComplete="current-password" autoFocus required value={passphrase} onChange={(e) => setPassphrase(e.target.value)} />
                   <button type="button" className="pass-toggle" onClick={() => setShowPassphrase((s) => !s)} aria-label={showPassphrase ? "Hide passphrase" : "Show passphrase"}>
                     {showPassphrase ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
+              </label>
+              <label className="remember-row">
+                <input type="checkbox" checked={rememberDevice} onChange={(e) => setRememberDevice(e.target.checked)} />
+                <span>Remember this device — skip re-entering this passphrase here next time. Only use this on a device you trust.</span>
               </label>
               <button type="submit" disabled={busy}><Lock size={16} /> {busy ? "Unlocking…" : "Unlock"}</button>
             </form>
@@ -205,6 +239,9 @@ const encryptionGateStyles = `
   .pass-field input { padding-right:34px; }
   .pass-toggle { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; color:#93A0B4; padding:4px; cursor:pointer; display:flex; align-items:center; border-radius:5px; }
   .pass-toggle:hover { color:#E8ECF1; }
+  .remember-row { flex-direction:row !important; align-items:flex-start; gap:8px !important; font-weight:400 !important; color:#93A0B4 !important; cursor:pointer; }
+  .remember-row input[type="checkbox"] { margin-top:2px; width:14px; height:14px; flex-shrink:0; accent-color:#5B8DEF; cursor:pointer; }
+  .remember-row span { font-size:11.5px; line-height:1.5; }
   .auth-card button[type="submit"] { display:flex; align-items:center; justify-content:center; gap:7px; background:#5B8DEF; color:#fff; border:none; padding:10px 14px; border-radius:9px; font-weight:600; font-size:13.5px; cursor:pointer; margin-top:4px; }
   .auth-card button[type="submit"]:disabled { opacity:0.6; cursor:default; }
   .auth-switch { display:block; width:100%; text-align:center; background:none; border:none; color:#93A0B4; font-size:12.5px; margin-top:16px; cursor:pointer; text-decoration:underline; }
