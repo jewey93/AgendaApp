@@ -246,7 +246,7 @@ function Sidebar({ view, setView, dark, setDark, pomodoro, setPomodoro, streak, 
           <button className="icon-btn" onClick={() => setPomodoro((p) => ({ ...p, running: !p.running }))}>
             {pomodoro.running ? <Pause size={15} /> : <Play size={15} />}
           </button>
-          <button className="icon-btn" onClick={() => setPomodoro({ secs: 25 * 60, running: false, mode: "focus" })}><RotateCcw size={15} /></button>
+          <button className="icon-btn" onClick={() => setPomodoro({ secs: 60 * 60, running: false, mode: "focus" })}><RotateCcw size={15} /></button>
         </div>
       </div>
 

@@ -87,10 +87,9 @@ export default function AuthGate() {
 
   if (session === undefined) {
     return (
-      <div className="auth-screen">
-        <style>{authStyles}</style>
+      <AuthShell>
         <div className="auth-loading"><Loader2 size={22} className="spin" /> Loading…</div>
-      </div>
+      </AuthShell>
     );
   }
 
@@ -98,8 +97,7 @@ export default function AuthGate() {
   // intercept that here regardless of the normal `!session` branch below.
   if (session && mode === "reset") {
     return (
-      <div className="auth-screen">
-        <style>{authStyles}</style>
+      <AuthShell>
         <div className="auth-card">
           <div className="auth-brand"><KeyRound size={18} /> Choose a new password</div>
           <p className="auth-sub">This only changes your login password — it has no effect on your encryption passphrase.</p>
@@ -119,15 +117,14 @@ export default function AuthGate() {
             </button>
           </form>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   if (!session) {
     if (mode === "forgot") {
       return (
-        <div className="auth-screen">
-          <style>{authStyles}</style>
+        <AuthShell>
           <div className="auth-card">
             <div className="auth-brand"><KeyRound size={18} /> Reset your password</div>
             <p className="auth-sub">Enter your account email and we'll send a link to reset your login password.</p>
@@ -146,13 +143,12 @@ export default function AuthGate() {
               <ArrowLeft size={12} style={{ verticalAlign: "-1px", marginRight: 4 }} /> Back to log in
             </button>
           </div>
-        </div>
+        </AuthShell>
       );
     }
 
     return (
-      <div className="auth-screen">
-        <style>{authStyles}</style>
+      <AuthShell>
         <div className="auth-card">
           <div className="auth-brand"><Sparkles size={18} /> Daily Agenda</div>
           <p className="auth-sub">{mode === "login" ? "Log in to your dashboard" : "Create your account"}</p>
@@ -187,11 +183,67 @@ export default function AuthGate() {
             {mode === "login" ? "Need an account? Sign up" : "Already have an account? Log in"}
           </button>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return <EncryptionGate session={session} onLogout={() => supabase.auth.signOut()} />;
+}
+
+/**
+ * Wraps every auth screen (loading / login / signup / forgot / reset) in
+ * the same split layout: a brand panel with a small hand-drawn mock of
+ * the app's own Today view on one side, the real form on the other. The
+ * plain single-card version this replaced just said "Daily Agenda" in
+ * text — nothing about it looked like a scheduling app. On narrow
+ * screens the visual panel is dropped and only the form shows, so
+ * mobile logins stay just as quick as before.
+ */
+function AuthShell({ children }) {
+  return (
+    <div className="auth-screen">
+      <style>{authStyles}</style>
+      <div className="auth-shell">
+        <AuthVisual />
+        <div className="auth-panel">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function AuthVisual() {
+  return (
+    <div className="auth-visual">
+      <div className="auth-visual-inner">
+        <div className="auth-visual-brand"><Sparkles size={20} /> Daily Agenda</div>
+        <p className="auth-visual-tag">Plan your day, one task at a time — capture, schedule, and check things off without losing the big picture.</p>
+        <div className="auth-mock-card">
+          <div className="auth-mock-head"><span>Today</span><span className="auth-mock-date">Sat, Jul 25</span></div>
+          <div className="auth-mock-row">
+            <span className="auth-mock-dot" style={{ background: "#F5A25E" }} />
+            <span className="auth-mock-time">07:00</span>
+            <span className="auth-mock-title">30 min run</span>
+          </div>
+          <div className="auth-mock-row done">
+            <span className="auth-mock-check">✓</span>
+            <span className="auth-mock-time">09:30</span>
+            <span className="auth-mock-title">Reply to emails</span>
+          </div>
+          <div className="auth-mock-row">
+            <span className="auth-mock-dot" style={{ background: "#5B8DEF" }} />
+            <span className="auth-mock-time">11:00</span>
+            <span className="auth-mock-title">Ship weekly report</span>
+          </div>
+          <div className="auth-mock-row">
+            <span className="auth-mock-dot" style={{ background: "#6FCF97" }} />
+            <span className="auth-mock-time">18:00</span>
+            <span className="auth-mock-title">Grocery run</span>
+          </div>
+          <div className="auth-mock-progress"><div className="auth-mock-progress-fill" /></div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const authStyles = `
@@ -206,9 +258,79 @@ const authStyles = `
     color: #E8ECF1;
     padding: 20px;
   }
-  .auth-loading { display:flex; align-items:center; gap:10px; color:#93A0B4; }
+  .auth-loading { display:flex; align-items:center; gap:10px; color:#93A0B4; padding: 32px 28px; }
   .spin { animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  .auth-shell {
+    display: flex;
+    width: 100%;
+    max-width: 900px;
+    min-height: 540px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.4);
+  }
+  .auth-visual {
+    flex: 1 1 44%;
+    background: linear-gradient(160deg, #16203a, #0F1520 70%);
+    padding: 44px 40px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .auth-visual::before {
+    content: "";
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 260px; height: 260px;
+    background: radial-gradient(circle, rgba(91,141,239,0.25), transparent 70%);
+  }
+  .auth-visual-inner { position: relative; z-index: 1; width: 100%; }
+  .auth-visual-brand { display:flex; align-items:center; gap:8px; font-weight:700; font-size:19px; color:#F5A25E; margin-bottom:10px; }
+  .auth-visual-tag { color:#93A0B4; font-size:13.5px; margin-bottom:26px; max-width:280px; line-height:1.55; }
+  .auth-mock-card {
+    background: #161E2C;
+    border: 1px solid #26314480;
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.35);
+    max-width: 300px;
+  }
+  .auth-mock-head { display:flex; justify-content:space-between; align-items:baseline; font-weight:700; font-size:13px; margin-bottom:10px; color:#E8ECF1; }
+  .auth-mock-date { color:#93A0B4; font-weight:500; font-size:11.5px; }
+  .auth-mock-row { display:flex; align-items:center; gap:8px; padding:7px 0; font-size:12px; border-top:1px solid #22304480; }
+  .auth-mock-row:first-of-type { border-top:none; }
+  .auth-mock-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .auth-mock-check {
+    width:14px; height:14px; border-radius:5px; background:#3FBF8C; color:#0F1520;
+    font-size:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-weight:700;
+  }
+  .auth-mock-time { color:#93A0B4; font-family: ui-monospace, 'Courier New', monospace; font-size:11px; width:38px; flex-shrink:0; }
+  .auth-mock-title { color:#E8ECF1; }
+  .auth-mock-row.done .auth-mock-title { color:#93A0B4; text-decoration: line-through; }
+  .auth-mock-progress { height:5px; background:#1C2536; border-radius:4px; overflow:hidden; margin-top:12px; }
+  .auth-mock-progress-fill { height:100%; width:45%; background:#5B8DEF; }
+
+  .auth-panel {
+    flex: 1 1 56%;
+    background: #161E2C;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 32px;
+  }
+  .auth-panel .auth-card { box-shadow: none; border: none; }
+  .auth-panel .auth-loading { padding: 0; }
+
+  @media (max-width: 760px) {
+    .auth-visual { display: none; }
+    .auth-shell { box-shadow: none; border-radius: 0; min-height: auto; max-width: 400px; }
+    .auth-panel { background: transparent; padding: 0; }
+    .auth-panel .auth-card { box-shadow: 0 20px 60px rgba(0,0,0,0.35); border: 1px solid #26314480; }
+  }
+
   .auth-card {
     background: #161E2C;
     border: 1px solid #26314480;

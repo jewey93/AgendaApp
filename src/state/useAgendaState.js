@@ -31,7 +31,7 @@ import { createEvent } from "../domain/eventModel.js";
 import { generateDueOccurrences } from "../domain/recurrenceModel.js";
 import { generateId } from "../domain/id.js";
 
-const DEFAULT_POMODORO = { secs: 25 * 60, running: false, mode: "focus" };
+const DEFAULT_POMODORO = { secs: 60 * 60, running: false, mode: "focus" };
 
 function seedTasks() {
   const t = todayISO();
@@ -132,7 +132,7 @@ export function useAgendaState(encryptionKey) {
       setPomodoro((p) => {
         if (p.secs <= 1) {
           const nextMode = p.mode === "focus" ? "break" : "focus";
-          return { secs: nextMode === "focus" ? 25 * 60 : 5 * 60, running: false, mode: nextMode };
+          return { secs: nextMode === "focus" ? 60 * 60 : 5 * 60, running: false, mode: nextMode };
         }
         return { ...p, secs: p.secs - 1 };
       });
