@@ -41,6 +41,7 @@ export const RECURRENCE_OPTIONS = [
 ];
 
 import { generateId } from "./id.js";
+import { toISODate } from "./dateUtils.js";
 
 /**
  * The single source of truth for "what fields does a task have, and
@@ -77,9 +78,11 @@ export function createTask(partial = {}) {
   };
 }
 
-// Avoids importing dateUtils just for a default — keeps this module dependency-light.
+// toISODate builds the date from local calendar fields (not UTC), so a
+// task created without an explicit date lands on the day it actually
+// is wherever the person is, not on whatever day UTC happens to be.
 function todayISODefault() {
-  return new Date().toISOString().slice(0, 10);
+  return toISODate(new Date());
 }
 
 export function isOverdue(task, todayIso) {
@@ -119,7 +122,7 @@ export function computeStreak(tasks, todayIso) {
   const shiftIso = (iso, days) => {
     const d = new Date(iso + "T00:00:00");
     d.setDate(d.getDate() + days);
-    return d.toISOString().slice(0, 10);
+    return toISODate(d);
   };
 
   let streak = 0;

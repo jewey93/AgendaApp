@@ -10,6 +10,7 @@
  * ------------------------------------------------------------------
  */
 import { isOverdue } from "./taskModel.js";
+import { toISODate } from "./dateUtils.js";
 
 export function isDueSoon(task, now, windowMinutes = 30) {
   if (task.completed || !task.dueTime) return false;
@@ -20,7 +21,8 @@ export function isDueSoon(task, now, windowMinutes = 30) {
 }
 
 export function getReminders(tasks, now, windowMinutes = 30) {
-  const todayIso = now.toISOString().slice(0, 10);
+  // toISODate uses local calendar fields, not UTC — see dateUtils.js.
+  const todayIso = toISODate(now);
   const dueSoon = tasks.filter((t) => isDueSoon(t, now, windowMinutes));
   const overdue = tasks.filter((t) => isOverdue(t, todayIso));
   return { dueSoon, overdue };

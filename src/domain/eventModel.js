@@ -12,11 +12,14 @@
  * ------------------------------------------------------------------
  */
 import { generateId } from "./id.js";
+import { todayISO } from "./dateUtils.js";
 
 export const EVENT_COLOR_TOKENS = ["primary", "secondary", "accent", "warning", "danger"];
 
 export function createEvent(partial = {}) {
-  const today = new Date().toISOString().slice(0, 10);
+  // todayISO() uses local calendar fields, not UTC — see dateUtils.js —
+  // so this lands on the right day regardless of timezone.
+  const today = todayISO();
   const rawStart = partial.startDate || today;
   const rawEnd = partial.endDate || rawStart;
   const [startDate, endDate] = rawStart <= rawEnd ? [rawStart, rawEnd] : [rawEnd, rawStart];

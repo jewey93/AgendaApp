@@ -14,7 +14,7 @@
  * below it in src/domain and src/data don't need a single edit.
  * ------------------------------------------------------------------
  */
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Flame, Plus, X, Check, Trash2, Copy, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Search, Filter,
   Moon, Sun, Timer, Sparkles, Droplet, Weight, BarChart3, CalendarDays, CalendarRange,
@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { CATEGORY_KEYS, CATEGORIES, PRIORITIES, PRIORITY_KEYS, RECURRENCE_OPTIONS } from "../domain/taskModel.js";
 import { generateId } from "../domain/id.js";
-import { todayISO, addDays, startOfWeek, monthKey, fmtDate, weekLabel, isoWeekNumber } from "../domain/dateUtils.js";
+import { todayISO, addDays, startOfWeek, monthKey, fmtDate, weekLabel, isoWeekNumber, toISODate } from "../domain/dateUtils.js";
 import { eventsOnDate, eventsTouchingMonth, EVENT_COLOR_TOKENS } from "../domain/eventModel.js";
 import { CATEGORY_VISUALS, PRIORITY_VISUALS, QUOTES, GlobalStyle } from "./theme.jsx";
 import CaptureView from "./CaptureView.jsx";
@@ -72,7 +72,20 @@ export default function AppShell({ state, userEmail, onLogout }) {
   // freshly generated. A missed occurrence of a recurring task is a
   // historical fact (visible on its real day / in Stats), not something
   // that should pile up in Today.
-  const overdue = tasks.filter((t) => !t.completed && t.date < today && (!t.recurrence || t.recurrence === "none"));
+  //
+  // A carried-over task that gets checked off keeps showing here too —
+  // `!t.completed` alone would drop it from this filter the instant you
+  // check it, since it's no longer "undone," which made it vanish out
+  // of Today mid-session right after you completed it instead of
+  // sinking to the bottom like every other completed task. Checking
+  // `completedAt` instead of `completed` means it only drops out once
+  // it was completed on some earlier day (real history, belongs on its
+  // original date) rather than the moment you finish it today.
+  const overdue = tasks.filter((t) => {
+    if (t.date >= today || (t.recurrence && t.recurrence !== "none")) return false;
+    if (!t.completed) return true;
+    return t.completedAt && toISODate(new Date(t.completedAt)) === today;
+  });
   const todayTasks = [...overdue, ...tasksForDate(today)];
   const tasksForDateWithCarryover = (iso) => (iso === today ? todayTasks : tasksForDate(iso));
   const completedToday = todayTasks.filter((t) => t.completed).length;
@@ -309,7 +322,25 @@ const sortDoneToBottom = (list) => [...list].sort((a, b) => (a.completed === b.c
 function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote, streak, onToggle, onEdit, onDelete, onDuplicate, onAdd, onReorder, onMoveToCategory }) {
   const haveToDo = sortDoneToBottom(todayTasks.filter((t) => t.category === "haveToDo")).slice(0, 5);
   const htdDone = haveToDo.filter((t) => t.completed).length;
-  const [htdDragOver, setHtdDragOver] = useState(false);
+
+  // Which drop zone ("haveToDo" or a category key) is currently
+  // highlighted while dragging. Lifted up here — rather than each card
+  // owning its own dragOver boolean — because a card's onDrop only
+  // fires when the drop lands on its own background; dropping directly
+  // on a task row (a common, precise drop target) intentionally stops
+  // that event from bubbling up so the row's own onReorder handles it
+  // instead of the card double-handling it. That left the card's own
+  // "clear my highlight" logic never running, so the outline stayed lit
+  // after the task had already moved. A single window-level `dragend`
+  // listener always fires once the drag finishes, no matter where — or
+  // how precisely — it was dropped, so it's a reliable place to clear
+  // the highlight regardless of which element actually caught the drop.
+  const [dragOverZone, setDragOverZone] = useState(null);
+  useEffect(() => {
+    const clear = () => setDragOverZone(null);
+    window.addEventListener("dragend", clear);
+    return () => window.removeEventListener("dragend", clear);
+  }, []);
 
   return (
     <div className="view-scroll">
@@ -343,10 +374,10 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
           </div>
           <div className="htd-progress"><div className="htd-progress-fill" style={{ width: `${haveToDo.length ? (htdDone / haveToDo.length) * 100 : 0}%` }} /></div>
           <div
-            className={"htd-list" + (htdDragOver ? " drag-over" : "")}
-            onDragOver={(e) => { e.preventDefault(); setHtdDragOver(true); }}
-            onDragLeave={() => setHtdDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setHtdDragOver(false); const fromId = e.dataTransfer.getData("text/plain"); if (fromId && onMoveToCategory) onMoveToCategory(fromId, "haveToDo"); }}
+            className={"htd-list" + (dragOverZone === "haveToDo" ? " drag-over" : "")}
+            onDragOver={(e) => { e.preventDefault(); setDragOverZone("haveToDo"); }}
+            onDragLeave={() => setDragOverZone((z) => (z === "haveToDo" ? null : z))}
+            onDrop={(e) => { e.preventDefault(); setDragOverZone(null); const fromId = e.dataTransfer.getData("text/plain"); if (fromId && onMoveToCategory) onMoveToCategory(fromId, "haveToDo"); }}
           >
             {haveToDo.map((t) => <TaskRow key={t.id} task={t} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} onReorder={onReorder} compact htd todayIso={today} />)}
           </div>
@@ -359,6 +390,7 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
             key={c} category={c} tasks={todayTasks.filter((t) => t.category === c)} today={today}
             onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate}
             onReorder={onReorder} onMoveToCategory={onMoveToCategory} onAdd={onAdd}
+            isDragOver={dragOverZone === c} onDragEnterZone={() => setDragOverZone(c)} onDragLeaveZone={() => setDragOverZone((z) => (z === c ? null : z))} onDropZone={() => setDragOverZone(null)}
           />
         ))}
       </div>
@@ -367,17 +399,16 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
 }
 
 /* ============================== CATEGORY CARD (drag-and-drop target) ============================== */
-function CategoryCard({ category, tasks, today, onToggle, onEdit, onDelete, onDuplicate, onReorder, onMoveToCategory, onAdd }) {
-  const [dragOver, setDragOver] = useState(false);
+function CategoryCard({ category, tasks, today, onToggle, onEdit, onDelete, onDuplicate, onReorder, onMoveToCategory, onAdd, isDragOver, onDragEnterZone, onDragLeaveZone, onDropZone }) {
   const list = sortDoneToBottom(tasks);
   const Icon = CATEGORY_VISUALS[category].icon;
   return (
     <section
-      className={"cat-card" + (dragOver ? " drag-over" : "")}
+      className={"cat-card" + (isDragOver ? " drag-over" : "")}
       style={{ "--cat-color": CATEGORY_VISUALS[category].color, "--cat-soft": CATEGORY_VISUALS[category].soft }}
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => { e.preventDefault(); setDragOver(false); const fromId = e.dataTransfer.getData("text/plain"); if (fromId && onMoveToCategory) onMoveToCategory(fromId, category); }}
+      onDragOver={(e) => { e.preventDefault(); onDragEnterZone(); }}
+      onDragLeave={onDragLeaveZone}
+      onDrop={(e) => { e.preventDefault(); onDropZone(); const fromId = e.dataTransfer.getData("text/plain"); if (fromId && onMoveToCategory) onMoveToCategory(fromId, category); }}
     >
       <div className="cat-card-head">
         <div className="cat-title"><Icon size={16} /> {CATEGORIES[category].label}</div>
@@ -393,6 +424,15 @@ function CategoryCard({ category, tasks, today, onToggle, onEdit, onDelete, onDu
 function TaskRow({ task, onToggle, onEdit, onDelete, onDuplicate, onReorder, compact, todayIso }) {
   const visuals = CATEGORY_VISUALS[task.category] || CATEGORY_VISUALS.personal;
   const [dragOver, setDragOver] = useState(false);
+  // Same belt-and-suspenders reset as CategoryCard: dragend always
+  // fires once a drag finishes, so it's a reliable fallback even if
+  // dragLeave/drop don't land cleanly on this exact row.
+  useEffect(() => {
+    if (!dragOver) return;
+    const clear = () => setDragOver(false);
+    window.addEventListener("dragend", clear);
+    return () => window.removeEventListener("dragend", clear);
+  }, [dragOver]);
   // todayIso is only passed in by views showing "today's list" — if the
   // task's real date doesn't match, it rolled over from an earlier day.
   const carriedOver = todayIso && task.date !== todayIso;
@@ -600,7 +640,7 @@ function MiniCalendar({ month, selectedDate, onSelect, onShiftMonth }) {
   for (let i = startOffset - 1; i >= 0; i--) {
     const d = prevMonthDays - i;
     const dm = new Date(y, m - 2, d);
-    cells.push({ iso: dm.toISOString().slice(0, 10), day: d, outside: true });
+    cells.push({ iso: toISODate(dm), day: d, outside: true });
   }
   for (let d = 1; d <= daysInMonth; d++) {
     cells.push({ iso: `${month}-${String(d).padStart(2, "0")}`, day: d, outside: false });
@@ -608,7 +648,7 @@ function MiniCalendar({ month, selectedDate, onSelect, onShiftMonth }) {
   let nextDay = 1;
   while (cells.length % 7 !== 0 || cells.length < 42) {
     const dm = new Date(y, m, nextDay);
-    cells.push({ iso: dm.toISOString().slice(0, 10), day: nextDay, outside: true });
+    cells.push({ iso: toISODate(dm), day: nextDay, outside: true });
     nextDay++;
     if (cells.length >= 42) break;
   }
@@ -725,7 +765,7 @@ function MonthlyPlanner({ month, selectedDate, setSelectedDate, tasks, goals, ev
 
   const shiftMonth = (delta) => {
     const nd = new Date(y, m - 1 + delta, 1);
-    setSelectedDate(nd.toISOString().slice(0, 10));
+    setSelectedDate(toISODate(nd));
   };
 
   return (

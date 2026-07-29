@@ -14,12 +14,28 @@
  * ------------------------------------------------------------------
  */
 
-export const todayISO = () => new Date().toISOString().slice(0, 10);
+// `.toISOString()` always renders in UTC, not the browser's local
+// timezone — so `new Date().toISOString().slice(0,10)` silently returns
+// TOMORROW's date for anyone west of UTC (US timezones included) during
+// the hours after local midnight but before UTC midnight rolls over
+// (e.g. 8pm–midnight EST is already "tomorrow" in UTC). Every date-only
+// value in this app should be built from the local calendar fields
+// instead — getFullYear/getMonth/getDate report in whatever timezone
+// the browser (and therefore the person using it) is actually in, which
+// is what makes "today" correct wherever they're located.
+export const toISODate = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+export const todayISO = () => toISODate(new Date());
 
 export const addDays = (iso, n) => {
   const d = new Date(iso + "T00:00:00");
   d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  return toISODate(d);
 };
 
 export const startOfWeek = (iso) => {
@@ -27,7 +43,7 @@ export const startOfWeek = (iso) => {
   const day = d.getDay();
   const diff = (day === 0 ? -6 : 1) - day; // shift to Monday
   d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
+  return toISODate(d);
 };
 
 export const monthKey = (iso) => iso.slice(0, 7);

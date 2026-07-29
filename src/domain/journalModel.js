@@ -9,11 +9,14 @@
  * ------------------------------------------------------------------
  */
 import { generateId } from "./id.js";
+import { todayISO } from "./dateUtils.js";
 
 export function createJournalEntry(partial = {}) {
   return {
     id: partial.id || generateId(),
-    date: partial.date || new Date().toISOString().slice(0, 10),
+    // todayISO() uses local calendar fields, not UTC, so an entry
+    // written late in the evening lands on the day it actually was.
+    date: partial.date || todayISO(),
     text: (partial.text || "").trim(),
     tags: partial.tags || [],
     createdAt: partial.createdAt || Date.now(),
