@@ -132,8 +132,11 @@ export default function AppShell({ state, userEmail, onLogout }) {
 
       <main className="main-panel">
         {view !== "capture" && (
-          <TopBar query={query} setQuery={setQuery} filterCat={filterCat} setFilterCat={setFilterCat}
-            onNewTask={() => setModal({ type: "task", data: { date: view === "today" ? today : selectedDate } })} />
+          <div className="app-header">
+            <QuickCapture addTasksFromCapture={addTasksFromCapture} onOpenFull={() => setView("capture")} />
+            <TopBar query={query} setQuery={setQuery} filterCat={filterCat} setFilterCat={setFilterCat}
+              onNewTask={() => setModal({ type: "task", data: { date: view === "today" ? today : selectedDate } })} />
+          </div>
         )}
 
         {view === "capture" && <CaptureView addTasksFromCapture={addTasksFromCapture} tasks={tasks} />}
@@ -288,6 +291,41 @@ function Sidebar({ view, setView, dark, setDark, pomodoro, setPomodoro, streak, 
         {dark ? <Sun size={16} /> : <Moon size={16} />} <span>{dark ? "Light mode" : "Dark mode"}</span>
       </button>
     </aside>
+  );
+}
+
+/* ========================== QUICK CAPTURE BAR ========================== */
+// The always-visible way to add a task from ANY view — type a line, press
+// Enter, done. It reuses the exact same parser/action as the full Capture
+// page (addTasksFromCapture), so shorthand like "gym 7am !high @fitness"
+// works here too. This is what keeps capture one keystroke away no matter
+// where you are in the app, instead of having to navigate to the Capture
+// screen first.
+function QuickCapture({ addTasksFromCapture, onOpenFull }) {
+  const [text, setText] = useState("");
+  const submit = () => {
+    if (!text.trim()) return;
+    const n = addTasksFromCapture(text);
+    if (n) setText("");
+  };
+  return (
+    <div className="quick-capture">
+      <Feather size={18} className="qc-icon" />
+      <input
+        className="qc-input"
+        placeholder="Add a task — type and press Enter  ·  try “gym 7am !high @fitness”"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }}
+        aria-label="Quick add a task"
+      />
+      {text.trim() && (
+        <button className="qc-add" onClick={submit}><Plus size={15} /> Add</button>
+      )}
+      <button className="qc-expand" onClick={onOpenFull} title="Open the full Capture page">
+        <Sparkles size={14} /> <span>Capture page</span>
+      </button>
+    </div>
   );
 }
 

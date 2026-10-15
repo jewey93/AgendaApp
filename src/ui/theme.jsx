@@ -164,7 +164,59 @@ export function GlobalStyle() {
       .logout-btn { margin-top:0; width:100%; }
 
       .main-panel { flex:1; min-width:0; padding: 22px 30px 60px; }
-      .topbar { display:flex; gap:12px; align-items:center; margin-bottom: 20px; flex-wrap:wrap; }
+
+      /* Sticky command header: the quick-capture bar + utility row stay
+         pinned to the top while the view scrolls, so adding a task is
+         always one keystroke away from anywhere in the app. The negative
+         margins let it span edge-to-edge across the main panel's padding;
+         the blurred translucent background keeps content legible as it
+         scrolls underneath. */
+      .app-header {
+        position: sticky; top: 0; z-index: 20;
+        display:flex; flex-direction:column; gap:12px;
+        margin: -22px -30px 22px; padding: 18px 30px 14px;
+        background: color-mix(in srgb, var(--bg) 80%, transparent);
+        backdrop-filter: blur(12px) saturate(1.1);
+        -webkit-backdrop-filter: blur(12px) saturate(1.1);
+        border-bottom: 1px solid var(--border);
+      }
+
+      /* The hero of every page: a big, inviting capture pill. */
+      .quick-capture {
+        display:flex; align-items:center; gap:10px;
+        background: var(--surface);
+        border:1px solid var(--border);
+        border-radius: 14px;
+        padding: 6px 8px 6px 15px;
+        box-shadow: var(--shadow);
+        transition: border-color .15s ease, box-shadow .18s ease;
+      }
+      .quick-capture:focus-within { border-color: var(--primary); box-shadow: var(--ring), var(--shadow-md); }
+      .qc-icon { color: var(--accent); flex-shrink:0; filter: drop-shadow(0 2px 5px rgba(242,153,74,0.3)); }
+      .qc-input {
+        flex:1; min-width:0; border:none; outline:none; background:none;
+        font-family:'Inter',sans-serif; font-size:15px; color: var(--text); padding:8px 0;
+      }
+      .qc-input::placeholder { color: var(--text-muted); opacity:0.85; }
+      .qc-add {
+        display:inline-flex; align-items:center; gap:5px; flex-shrink:0;
+        background: var(--primary-grad); color:#fff; border:none;
+        padding:9px 15px; border-radius:10px; font-size:13px; font-weight:600;
+        font-family:'Inter',sans-serif; cursor:pointer;
+        box-shadow: 0 2px 6px rgba(29,53,87,0.25); transition: filter .15s ease, transform .1s ease;
+        animation: chip-in .14s ease both;
+      }
+      .qc-add:hover { filter: brightness(1.06); transform: translateY(-1px); }
+      .qc-expand {
+        display:inline-flex; align-items:center; gap:6px; flex-shrink:0;
+        background: var(--accent-soft); color: var(--accent); border:1px solid transparent;
+        padding:9px 13px; border-radius:10px; font-size:12.5px; font-weight:600;
+        font-family:'Inter',sans-serif; cursor:pointer; transition: background .15s ease;
+      }
+      .qc-expand:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+      .qc-expand:focus-visible, .qc-add:focus-visible { outline:none; box-shadow: var(--ring); }
+
+      .topbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
       .search-box { display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:9px 13px; flex:1; min-width:200px; color:var(--text-muted); box-shadow: var(--shadow-sm); transition: border-color .15s ease, box-shadow .18s ease; }
       .search-box:focus-within { border-color: var(--primary); box-shadow: var(--ring); }
       .search-box input { border:none; outline:none; background:none; font-size:13.5px; color:var(--text); width:100%; font-family:'Inter',sans-serif; }
@@ -540,6 +592,12 @@ export function GlobalStyle() {
         }
 
         .main-panel { padding: 16px; }
+        /* Re-fit the edge-to-edge sticky header to the mobile panel padding. */
+        .app-header { margin: -16px -16px 16px; padding: 12px 16px 10px; top: 0; }
+        .quick-capture { padding: 5px 6px 5px 12px; }
+        .qc-input { font-size:14px; }
+        .qc-expand span { display:none; }
+        .qc-expand { padding:9px 11px; }
       }
     `}</style>
   );
