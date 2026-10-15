@@ -43,7 +43,7 @@
  */
 import React, { useState, useEffect } from "react";
 import { Lock, ShieldCheck, Loader2, AlertTriangle, Eye, EyeOff } from "lucide-react";
-import { loadSalt, saveSalt, loadAgendaData } from "./data/taskRepository.js";
+import { loadSalt, saveSalt, loadAgendaData, resetEncryptedData } from "./data/taskRepository.js";
 import { generateSalt, createEncryptionKey } from "./data/crypto.js";
 import App from "./App.jsx";
 
@@ -60,6 +60,7 @@ export default function EncryptionGate({ session, onLogout }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [encryptionKey, setEncryptionKey] = useState(null);
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -147,6 +148,28 @@ export default function EncryptionGate({ session, onLogout }) {
     onLogout?.();
   };
 
+  // The only recovery path for a forgotten passphrase: discard the data
+  // encrypted under it (it genuinely cannot be decrypted without it) and
+  // return to the create-a-passphrase setup screen as a fresh start.
+  const handleReset = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      await resetEncryptedData();
+      sessionStorage.removeItem(SESSION_PASSPHRASE_KEY);
+      localStorage.removeItem(LOCAL_PASSPHRASE_KEY);
+      setSalt(null);
+      setPassphrase("");
+      setConfirmPassphrase("");
+      setConfirmingReset(false);
+      setPhase("setup");
+    } catch (e) {
+      setError("Couldn't reset your data. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (phase === "ready") {
     return <App session={session} onLogout={handleLogout} encryptionKey={encryptionKey} />;
   }
@@ -209,6 +232,25 @@ export default function EncryptionGate({ session, onLogout }) {
               </label>
               <button type="submit" disabled={busy}><Lock size={16} /> {busy ? "Unlocking…" : "Unlock"}</button>
             </form>
+
+            {!confirmingReset ? (
+              <button className="auth-switch" onClick={() => { setError(""); setConfirmingReset(true); }}>
+                Forgot your passphrase?
+              </button>
+            ) : (
+              <div className="reset-confirm">
+                <div className="encryption-warning">
+                  <AlertTriangle size={13} />
+                  There's no way to recover a forgotten passphrase — the data saved under it can't be decrypted without it. Starting over erases that data for good and lets you set a new passphrase. This can't be undone.
+                </div>
+                <div className="reset-actions">
+                  <button type="button" className="reset-danger" onClick={handleReset} disabled={busy}>
+                    {busy ? "Erasing…" : "Erase data & start over"}
+                  </button>
+                  <button type="button" className="auth-switch inline" onClick={() => setConfirmingReset(false)}>Cancel</button>
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -245,4 +287,11 @@ const encryptionGateStyles = `
   .auth-card button[type="submit"] { display:flex; align-items:center; justify-content:center; gap:7px; background:#5B8DEF; color:#fff; border:none; padding:10px 14px; border-radius:9px; font-weight:600; font-size:13.5px; cursor:pointer; margin-top:4px; }
   .auth-card button[type="submit"]:disabled { opacity:0.6; cursor:default; }
   .auth-switch { display:block; width:100%; text-align:center; background:none; border:none; color:#93A0B4; font-size:12.5px; margin-top:16px; cursor:pointer; text-decoration:underline; }
+  .auth-switch.inline { width:auto; margin:0; }
+  .reset-confirm { margin-top:16px; padding-top:16px; border-top:1px solid #26314480; }
+  .reset-confirm .encryption-warning { margin-bottom:12px; }
+  .reset-actions { display:flex; align-items:center; gap:12px; }
+  .reset-danger { display:inline-flex; align-items:center; justify-content:center; background:#EF6F66; color:#fff; border:none; padding:9px 14px; border-radius:9px; font-weight:600; font-size:12.5px; cursor:pointer; font-family:'Inter',sans-serif; }
+  .reset-danger:hover { background:#e85e54; }
+  .reset-danger:disabled { opacity:0.6; cursor:default; }
 `;

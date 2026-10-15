@@ -43,3 +43,19 @@ export async function saveAgendaData(data, encryptionKey) {
   const packed = await encryptJSON(encryptionKey, data);
   await storage.set(STORAGE_KEY, packed, false);
 }
+
+/**
+ * Wipes the encrypted data blob AND the salt, returning the account to a
+ * clean "new user" state (next load has no salt, so EncryptionGate shows
+ * the create-a-passphrase setup screen again).
+ *
+ * This is the ONLY recovery path for a forgotten passphrase: data
+ * encrypted under it genuinely cannot be decrypted without it (see
+ * crypto.js), so "resetting" means deliberately discarding that data and
+ * starting over, not recovering it. The UI must make that consequence
+ * unmistakable before calling this.
+ */
+export async function resetEncryptedData() {
+  await storage.delete(STORAGE_KEY, false);
+  await storage.delete(SALT_KEY, false);
+}

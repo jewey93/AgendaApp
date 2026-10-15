@@ -187,19 +187,13 @@ export function GlobalStyle() {
 
       .main-panel { flex:1; min-width:0; padding: 22px 30px 60px; }
 
-      /* Sticky command header: the quick-capture bar + utility row stay
-         pinned to the top while the view scrolls, so adding a task is
-         always one keystroke away from anywhere in the app. The negative
-         margins let it span edge-to-edge across the main panel's padding;
-         the blurred translucent background keeps content legible as it
-         scrolls underneath. */
+      /* Command header: the quick-capture bar + utility row. It sits at
+         the top of each view in normal flow (not pinned/floating) so
+         adding a task is right there when you arrive, without overlaying
+         the content as you scroll. */
       .app-header {
-        position: sticky; top: 0; z-index: 20;
         display:flex; flex-direction:column; gap:12px;
-        margin: -22px -30px 22px; padding: 18px 30px 14px;
-        background: color-mix(in srgb, var(--bg) 80%, transparent);
-        backdrop-filter: blur(12px) saturate(1.1);
-        -webkit-backdrop-filter: blur(12px) saturate(1.1);
+        margin: 0 0 22px; padding-bottom: 16px;
         border-bottom: 1px solid var(--border);
       }
 
@@ -247,7 +241,8 @@ export function GlobalStyle() {
          it overrides their flat background/border/shadow; the colored
          accent bars (::before) and hover rules still apply on top. */
       .cat-card, .goal-card, .stat-card, .timeline-card, .mini-card,
-      .week-day-card, .month-cell:not(.empty), .htd-rail, .mini-cal, .filter-panel {
+      .week-day-card, .month-cell:not(.empty), .htd-rail, .mini-cal, .filter-panel,
+      .capture-paper, .capture-preview, .capture-quickbar {
         background: var(--glass);
         backdrop-filter: var(--glass-blur);
         -webkit-backdrop-filter: var(--glass-blur);
@@ -497,8 +492,11 @@ export function GlobalStyle() {
 
       .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background: var(--text); color: var(--bg); padding:10px 18px; border-radius:10px; font-size:13px; font-weight:600; z-index:60; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
 
-      /* ---------- Capture screen (paper-like rapid entry) ---------- */
-      .capture-screen { display:flex; flex-direction:column; height: calc(100vh - 100px); gap:16px; }
+      /* ---------- Capture screen (rapid entry) ----------
+         Flows naturally in the page (min-height, not a locked full-screen
+         panel) and uses the same frosted-glass surfaces as the rest of
+         the app so it feels like one product. */
+      .capture-screen { display:flex; flex-direction:column; min-height: calc(100vh - 150px); gap:16px; }
       .capture-head { display:flex; justify-content:space-between; align-items:flex-end; }
       .capture-hint-toggle { display:inline-flex; align-items:center; gap:4px; background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted); font-size:11.5px; font-weight:600; cursor:pointer; padding:7px 12px; border-radius:20px; transition: background 0.15s ease, color 0.15s ease; }
       .capture-hint-toggle:hover { background:var(--border); color:var(--text); }
@@ -643,8 +641,7 @@ export function GlobalStyle() {
         }
 
         .main-panel { padding: 16px; }
-        /* Re-fit the edge-to-edge sticky header to the mobile panel padding. */
-        .app-header { margin: -16px -16px 16px; padding: 12px 16px 10px; top: 0; }
+        .app-header { margin: 0 0 16px; padding-bottom: 12px; }
         .quick-capture { padding: 5px 6px 5px 12px; }
         .qc-input { font-size:14px; }
         .qc-expand span { display:none; }
