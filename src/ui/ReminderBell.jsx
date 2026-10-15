@@ -14,7 +14,9 @@ import { Bell, BellOff, BellRing } from "lucide-react";
 
 export default function ReminderBell({ dueSoon, overdue, permission, requestPermission, supported, onTaskClick }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
   const ref = useRef(null);
+  const btnRef = useRef(null);
   const total = dueSoon.length + overdue.length;
 
   useEffect(() => {
@@ -23,15 +25,47 @@ export default function ReminderBell({ dueSoon, overdue, permission, requestPerm
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
+  // The panel is wider than the sidebar, and the sidebar clips horizontal
+  // overflow (overflow-y:auto forces overflow-x to auto), which hid the
+  // notifications. Positioning it `fixed` — measured from the bell button
+  // on open — lets it escape the sidebar entirely and render over the
+  // page. Recomputed on open, resize, and scroll so it stays anchored.
+  const PANEL_WIDTH = 280;
+  const place = () => {
+    const el = btnRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    let left = Math.max(8, Math.min(r.left, window.innerWidth - PANEL_WIDTH - 8));
+    setPos({ top: Math.round(r.bottom + 8), left: Math.round(left) });
+  };
+  const toggle = () => {
+    setOpen((o) => {
+      const next = !o;
+      if (next) requestAnimationFrame(place);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onMove = () => place();
+    window.addEventListener("resize", onMove);
+    window.addEventListener("scroll", onMove, true);
+    return () => {
+      window.removeEventListener("resize", onMove);
+      window.removeEventListener("scroll", onMove, true);
+    };
+  }, [open]);
+
   return (
     <div className="reminder-bell" ref={ref}>
-      <button className="icon-btn reminder-bell-btn" onClick={() => setOpen((o) => !o)} title="Reminders">
+      <button ref={btnRef} className="icon-btn reminder-bell-btn" onClick={toggle} title="Reminders">
         <Bell size={16} />
         {total > 0 && <span className="reminder-badge">{total}</span>}
       </button>
 
       {open && (
-        <div className="reminder-panel">
+        <div className="reminder-panel" style={pos ? { position: "fixed", top: pos.top, left: pos.left, width: PANEL_WIDTH } : undefined}>
           <div className="reminder-panel-head">Reminders</div>
 
           {supported && permission !== "granted" && (
