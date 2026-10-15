@@ -352,6 +352,12 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
         </div>
         <div className="today-ring">
           <svg viewBox="0 0 120 120" className="ring-svg">
+            <defs>
+              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="var(--accent-2)" />
+                <stop offset="100%" stopColor="var(--accent)" />
+              </linearGradient>
+            </defs>
             <circle cx="60" cy="60" r="52" className="ring-bg" />
             <circle cx="60" cy="60" r="52" className="ring-fg" style={{ strokeDasharray: 326.7, strokeDashoffset: 326.7 - (326.7 * pctToday) / 100 }} />
           </svg>
