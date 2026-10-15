@@ -65,7 +65,17 @@ export function GlobalStyle() {
         --primary-grad: linear-gradient(180deg, #27456c, #1D3557);
         --accent-grad: linear-gradient(135deg, #F7B15A, #F2994A 55%, #EC7F3F);
         --ring: 0 0 0 3px var(--primary-soft);
-        --radius: 15px;
+        --radius: 16px;
+        /* Frosted-glass surface system: translucent panels that blur and
+           refract the soft color backdrop behind them, a bright top-edge
+           highlight, and a floating shadow for depth. */
+        --glass: rgba(255,255,255,0.58);
+        --glass-2: rgba(255,255,255,0.40);
+        --glass-border: rgba(255,255,255,0.80);
+        --glass-hi: rgba(255,255,255,0.65);
+        --glass-blur: blur(18px) saturate(1.35);
+        --glass-shadow: 0 2px 6px rgba(28,40,70,0.06), 0 14px 34px rgba(28,40,70,0.10);
+        --glass-shadow-lg: 0 10px 24px rgba(28,40,70,0.10), 0 28px 64px rgba(28,40,70,0.16);
         font-family: 'Inter', sans-serif;
         color: var(--text);
         background: var(--bg);
@@ -76,13 +86,17 @@ export function GlobalStyle() {
         -webkit-font-smoothing: antialiased;
         text-rendering: optimizeLegibility;
       }
-      /* A faint warm wash in the top-left keeps the large paper background
-         from reading as a flat, lifeless fill. */
+      /* Soft color backdrop: gentle gradient blobs give the frosted-glass
+         panels something to refract, so they read as real glass rather
+         than flat cards. Kept light and desaturated so the app stays
+         bright and clean. */
       .app-root::before {
         content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
         background:
-          radial-gradient(900px 520px at 12% -5%, rgba(29,53,87,0.035), transparent 60%),
-          radial-gradient(900px 600px at 100% 0%, rgba(242,153,74,0.035), transparent 55%);
+          radial-gradient(680px 480px at 4% -6%, rgba(91,141,239,0.22), transparent 62%),
+          radial-gradient(620px 520px at 104% 4%, rgba(242,153,74,0.18), transparent 60%),
+          radial-gradient(720px 560px at 44% 112%, rgba(46,156,111,0.16), transparent 62%),
+          radial-gradient(560px 520px at 90% 94%, rgba(139,92,246,0.12), transparent 60%);
       }
       .app-root.dark {
         --bg:#0E131D; --surface:#161E2C; --surface-2:#1C2536; --border:#2A3650; --border-strong:#38465f;
@@ -101,11 +115,19 @@ export function GlobalStyle() {
         --primary-grad: linear-gradient(180deg, #6b98f1, #5B8DEF);
         --accent-grad: linear-gradient(135deg, #F7B373, #F5A25E 55%, #EC8C4C);
         --ring: 0 0 0 3px var(--primary-soft);
+        --glass: rgba(26,34,52,0.52);
+        --glass-2: rgba(26,34,52,0.38);
+        --glass-border: rgba(255,255,255,0.10);
+        --glass-hi: rgba(255,255,255,0.07);
+        --glass-blur: blur(18px) saturate(1.25);
+        --glass-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 16px 40px rgba(0,0,0,0.45);
+        --glass-shadow-lg: 0 18px 44px rgba(0,0,0,0.5), 0 32px 72px rgba(0,0,0,0.55);
       }
       .app-root.dark::before {
         background:
-          radial-gradient(900px 500px at 12% -5%, rgba(91,141,239,0.10), transparent 60%),
-          radial-gradient(900px 600px at 100% 0%, rgba(63,191,140,0.06), transparent 55%);
+          radial-gradient(760px 520px at 8% -8%, rgba(91,141,239,0.18), transparent 60%),
+          radial-gradient(720px 560px at 102% 2%, rgba(245,162,94,0.12), transparent 58%),
+          radial-gradient(820px 620px at 50% 118%, rgba(63,191,140,0.12), transparent 60%);
       }
       /* Keep real content above the ambient background wash. */
       .sidebar, .main-panel, .mobile-topbar { position: relative; z-index: 1; }
@@ -217,6 +239,35 @@ export function GlobalStyle() {
       .qc-expand:focus-visible, .qc-add:focus-visible { outline:none; box-shadow: var(--ring); }
 
       .topbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+      /* ---------- Frosted-glass panels (applied across Today, Daily,
+         Weekly, Monthly, Stats and Goals) ----------
+         One shared treatment so every content panel reads as the same
+         floating glass material. Placed after the per-view card rules so
+         it overrides their flat background/border/shadow; the colored
+         accent bars (::before) and hover rules still apply on top. */
+      .cat-card, .goal-card, .stat-card, .timeline-card, .mini-card,
+      .week-day-card, .month-cell:not(.empty), .htd-rail, .mini-cal, .filter-panel {
+        background: var(--glass);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+        box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+      }
+      /* Lift on hover with the deeper floating shadow. */
+      .cat-card:hover, .goal-card:hover, .stat-card:hover, .mini-card:hover,
+      .week-day-card:hover, .month-cell:not(.empty):hover {
+        box-shadow: var(--glass-shadow-lg), inset 0 1px 0 var(--glass-hi);
+        border-color: var(--glass-border);
+      }
+      /* Keep the Have-To-Do rail's warm identity, but as tinted glass. */
+      .htd-rail { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--glass)), var(--glass) 70%); border-color: color-mix(in srgb, var(--accent) 35%, var(--glass-border)); }
+      /* Inner surfaces sitting on a glass panel (timeline rows, mini-cal
+         cells, notes) get the lighter secondary glass so they don't look
+         like opaque blocks punched into the frosted panel. */
+      .spine-task, .notes-area, .week-mini-task, .inline-add input, .cat-bar-track, .mini-bar-track {
+        background: var(--glass-2);
+      }
       .search-box { display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:9px 13px; flex:1; min-width:200px; color:var(--text-muted); box-shadow: var(--shadow-sm); transition: border-color .15s ease, box-shadow .18s ease; }
       .search-box:focus-within { border-color: var(--primary); box-shadow: var(--ring); }
       .search-box input { border:none; outline:none; background:none; font-size:13.5px; color:var(--text); width:100%; font-family:'Inter',sans-serif; }
