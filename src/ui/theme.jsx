@@ -55,7 +55,7 @@ export function GlobalStyle() {
         --accent:#F2994A; --accent-soft:rgba(242,153,74,0.14); --accent-2:#F0B429;
         --success:#34A853; --warning:#EFA23A; --warning-soft:rgba(239,162,58,0.14);
         --danger:#E2554C; --danger-soft:rgba(226,85,76,0.12);
-        --bg:#FAF8F2; --surface:#FFFFFF; --surface-2:#F4F1E9; --border:#E9E3D6; --border-strong:#DED6C4;
+        --bg:#FBFBFC; --surface:#FFFFFF; --surface-2:#F3F4F6; --border:#ECEEF1; --border-strong:#DEE1E6;
         --text:#1B2430; --text-muted:#6E7684;
         --shadow-sm: 0 1px 2px rgba(28,28,15,0.05);
         --shadow: 0 1px 2px rgba(28,28,15,0.04), 0 4px 14px rgba(28,28,15,0.05);
@@ -81,8 +81,8 @@ export function GlobalStyle() {
       .app-root::before {
         content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
         background:
-          radial-gradient(900px 500px at 12% -5%, rgba(242,153,74,0.07), transparent 60%),
-          radial-gradient(900px 600px at 100% 0%, rgba(29,53,87,0.05), transparent 55%);
+          radial-gradient(900px 520px at 12% -5%, rgba(29,53,87,0.035), transparent 60%),
+          radial-gradient(900px 600px at 100% 0%, rgba(242,153,74,0.035), transparent 55%);
       }
       .app-root.dark {
         --bg:#0E131D; --surface:#161E2C; --surface-2:#1C2536; --border:#2A3650; --border-strong:#38465f;
