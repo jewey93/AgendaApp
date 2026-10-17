@@ -294,13 +294,15 @@ export function GlobalStyle() {
       .quote { font-style: italic; color: var(--text-muted); font-size:14px; line-height:1.5; }
       .page-head-row { display:flex; justify-content:space-between; align-items:flex-end; }
 
-      .hero-row { display:flex; justify-content:space-between; align-items:center; gap: 20px; flex-wrap:wrap; }
-      .today-ring { position:relative; width:122px; height:122px; flex-shrink:0; }
-      .ring-svg { width:122px; height:122px; transform: rotate(-90deg); filter: drop-shadow(0 4px 10px rgba(242,153,74,0.22)); }
+      .hero-row { display:flex; justify-content:space-between; align-items:center; gap: 24px; flex-wrap:wrap; }
+      .hero-row .page-title { font-size:36px; line-height:1.1; margin:6px 0 8px; }
+      .hero-text .eyebrow { color: var(--accent); opacity:1; font-weight:700; }
+      .today-ring { position:relative; width:140px; height:140px; flex-shrink:0; }
+      .ring-svg { width:140px; height:140px; transform: rotate(-90deg); filter: drop-shadow(0 6px 14px rgba(242,153,74,0.26)); }
       .ring-bg { fill:none; stroke: var(--border); stroke-width:9; }
       .ring-fg { fill:none; stroke: url(#ringGrad); stroke-width:9; stroke-linecap:round; transition: stroke-dashoffset .6s cubic-bezier(.22,.61,.36,1); }
       .ring-label { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-      .ring-label strong { font-family:'Space Grotesk',sans-serif; font-size:23px; }
+      .ring-label strong { font-family:'Space Grotesk',sans-serif; font-size:27px; }
       .ring-label span { font-size:11px; color:var(--text-muted); }
 
       .stat-strip { display:flex; gap:10px; flex-wrap:wrap; }
@@ -311,7 +313,7 @@ export function GlobalStyle() {
 
       .htd-rail { position:relative; background: linear-gradient(135deg, var(--accent-soft), transparent 70%); border:1px solid var(--accent); border-radius: var(--radius); padding:16px 18px; box-shadow: var(--shadow-sm); overflow:hidden; }
       .htd-rail::before { content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background: var(--accent-grad); }
-      .htd-rail-head { display:flex; align-items:center; gap:8px; font-weight:700; font-family:'Space Grotesk',sans-serif; font-size:14.5px; margin-bottom:10px; }
+      .htd-rail-head { display:flex; align-items:center; gap:10px; font-weight:700; font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px; }
       .htd-flame { color: var(--accent); }
       .htd-count { margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:12px; color: var(--text-muted); }
       .htd-progress { height:6px; background: var(--border); border-radius:6px; overflow:hidden; margin-bottom:12px; }
@@ -327,7 +329,12 @@ export function GlobalStyle() {
       .cat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
       .cat-card.drag-over { outline-color: var(--cat-color); background: var(--cat-soft); }
       .cat-card-head { display:flex; justify-content:space-between; align-items:center; }
-      .cat-title { display:flex; align-items:center; gap:7px; font-weight:700; font-size:13.5px; color: var(--cat-color); font-family:'Space Grotesk',sans-serif; letter-spacing:0.01em; }
+      .cat-title { display:flex; align-items:center; gap:10px; font-weight:700; font-size:14.5px; color: var(--text); font-family:'Space Grotesk',sans-serif; letter-spacing:0.005em; }
+      /* Colored rounded icon badge — the clear visual anchor for each
+         section, Notion/Linear style. The label text stays neutral so the
+         color reads from the badge (and the card's top accent bar). */
+      .cat-badge { width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center; background: var(--cat-soft); color: var(--cat-color); flex-shrink:0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-color) 24%, transparent); }
+      .htd-badge { width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center; background: var(--accent-soft); color: var(--accent); flex-shrink:0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent); }
       .cat-title.muted { color: var(--text-muted); }
       .empty-hint { color: var(--text-muted); font-size:12.5px; padding: 8px 2px; }
       .empty-hint.big { padding: 30px; text-align:center; background:var(--surface); border:1px dashed var(--border); border-radius:var(--radius); }
@@ -365,7 +372,11 @@ export function GlobalStyle() {
       .timeline-card, .mini-card { background:var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding:20px; box-shadow: var(--shadow); }
       .mini-card { transition: box-shadow .18s ease, transform .12s ease; }
       .mini-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-      .card-head { display:flex; align-items:center; gap:8px; justify-content:space-between; font-weight:700; font-family:'Space Grotesk',sans-serif; font-size:14px; margin-bottom:12px; }
+      .card-head { display:flex; align-items:center; gap:9px; justify-content:space-between; font-weight:700; font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:14px; letter-spacing:0.005em; }
+      /* Give the leading icon in a card header a soft tinted chip so these
+         section headers read with the same badge language as the Today
+         cards. */
+      .card-head > svg:first-child { color: var(--primary); padding:6px; width:28px; height:28px; border-radius:9px; background: var(--primary-soft); box-sizing:border-box; flex-shrink:0; }
       .spine-wrap { position:relative; padding-left: 14px; }
       .spine-line { position:absolute; left:57px; top:6px; bottom:6px; width:2px; background:var(--border); }
       .spine-row { display:flex; gap:12px; padding: 6px 0; position:relative; }
