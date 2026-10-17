@@ -545,25 +545,21 @@ export function GlobalStyle() {
       .cheatsheet-pill b { color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:500; }
       .cheatsheet-note { font-size:11px; color:var(--text-muted); margin-left:auto; }
       .cheatsheet-note b { color:var(--text); font-family:'IBM Plex Mono',monospace; }
-      .capture-body { flex:1; display:grid; grid-template-columns: 1.4fr 1fr; gap:16px; min-height:0; }
+      /* minmax(0,…) lets both columns shrink below their content, so a
+         long parsed-task title can't blow the grid out of its 1.7:1 ratio
+         (the writing surface stays the clear hero). */
+      .capture-body { flex:1; display:grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap:18px; min-height:0; }
       @media (max-width: 980px) { .capture-body { grid-template-columns: 1fr; } }
 
-      /* The writing surface is styled exactly like every other card in
-         the app — same --surface/--border/--radius/--shadow tokens as
-         .task-row and .capture-preview — so this screen matches the
-         rest of the product instead of being a one-off skin. */
-      .capture-paper {
-        position:relative;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-        transition: box-shadow 0.15s ease, border-color 0.15s ease;
-      }
-      .capture-paper:focus-within { border-color: var(--primary); box-shadow: var(--shadow), 0 0 0 3px var(--primary-soft); }
-      .capture-textarea { width:100%; height:100%; border:none; outline:none; background:transparent; padding: 18px 20px; font-family:'Inter', sans-serif; font-size:14.5px; line-height:1.75; color: var(--text); }
+      /* The writing surface uses the shared frosted-glass treatment (see
+         the .capture-paper rule in the glass block above); here we only
+         add the focus ring and the generous, comfortable typography that
+         make it inviting to write in. */
+      .capture-paper { position:relative; min-width:0; border-radius: var(--radius); transition: box-shadow 0.15s ease, border-color 0.15s ease; }
+      .capture-paper:focus-within { border-color: var(--primary); box-shadow: var(--glass-shadow), 0 0 0 3px var(--primary-soft); }
+      .capture-textarea { width:100%; height:100%; border:none; outline:none; background:transparent; padding: 26px 28px; font-family:'Inter', sans-serif; font-size:16px; line-height:1.85; color: var(--text); }
       .capture-editable { overflow-y:auto; white-space:pre-wrap; word-wrap:break-word; cursor:text; }
-      .capture-editable:empty:before { content: attr(data-placeholder); color: var(--text-muted); font-size:14.5px; pointer-events:none; }
+      .capture-editable:empty:before { content: attr(data-placeholder); color: var(--text-muted); font-size:16px; pointer-events:none; }
       /* Small outlined badges — colored text + colored border + a
          faint tint, not a solid fill — matching the compact status/
          category badge convention from the reference (INQUIRY,
@@ -572,7 +568,7 @@ export function GlobalStyle() {
       .chip-category { background: color-mix(in srgb, var(--chip-color, var(--primary)) 10%, transparent); border: 1px solid color-mix(in srgb, var(--chip-color, var(--primary)) 30%, transparent); color: var(--chip-color, var(--primary)); }
       .chip-dot { width:5px; height:5px; border-radius:50%; background: var(--chip-color, var(--primary)); flex-shrink:0; }
       .chip-tag { background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); }
-      .capture-quickbar { display:flex; gap:6px; flex-wrap:wrap; background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding:7px; box-shadow: var(--shadow); }
+      .capture-quickbar { display:flex; gap:6px; flex-wrap:wrap; border-radius: var(--radius); padding:8px; }
       .quickmark-btn { display:inline-flex; align-items:center; gap:5px; min-height:32px; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:0 11px; font-size:12px; font-weight:600; color:var(--text); cursor:pointer; font-family:'Inter', sans-serif; transition: background 0.15s ease, border-color 0.15s ease; }
       .quickmark-btn:hover { background:var(--surface-2); border-color: var(--primary); }
       .quickmark-btn:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
@@ -582,14 +578,14 @@ export function GlobalStyle() {
       .capture-suggest-item.active, .capture-suggest-item:hover { background:var(--surface-2); }
       .suggest-swatch { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
       .suggest-hash { color:var(--text-muted); flex-shrink:0; }
-      .capture-preview { background:var(--surface); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding:16px; display:flex; flex-direction:column; min-height:0; }
-      .capture-preview-list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+      .capture-preview { border-radius: var(--radius); padding:18px; display:flex; flex-direction:column; min-height:0; min-width:0; }
+      .capture-preview-list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-top:12px; }
       .capture-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; flex:1; color:var(--text-muted); text-align:center; padding:30px 16px; }
       .capture-empty svg { opacity:0.32; }
       .capture-empty p { margin:0; font-weight:600; color:var(--text); font-size:13.5px; }
       .capture-empty span { font-size:12px; max-width:220px; line-height:1.5; }
-      .capture-draft-chip { display:flex; align-items:center; gap:8px; border-left:3px solid var(--row-color); background:var(--surface-2); border-radius:8px; padding:8px 10px; font-size:12.5px; animation: chip-in 0.22s ease both; animation-delay: calc(var(--row-i, 0) * 25ms); }
-      .capture-draft-chip .chip-title { font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .capture-draft-chip { display:flex; align-items:center; gap:10px; border-left:3px solid var(--row-color); background:var(--glass-2); border:1px solid var(--border); border-left:3px solid var(--row-color); border-radius:10px; padding:10px 12px; font-size:13px; animation: chip-in 0.22s ease both; animation-delay: calc(var(--row-i, 0) * 25ms); }
+      .capture-draft-chip .chip-title { flex:1; min-width:0; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
       .capture-draft-chip .chip-meta { margin-left:auto; flex-shrink:0; display:flex; gap:6px; align-items:center; font-size:10.5px; color:var(--text-muted); }
       .chip-priority { padding:1px 6px; border-radius:20px; font-weight:600; text-transform:uppercase; letter-spacing:0.3px; font-size:9.5px; }
       .chip-priority.pr-high { background:var(--danger-soft); color:var(--danger); }
