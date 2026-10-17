@@ -197,40 +197,59 @@ export function GlobalStyle() {
         border-bottom: 1px solid var(--border);
       }
 
-      /* The hero of every page: a big, inviting capture pill. */
-      .quick-capture {
-        display:flex; align-items:center; gap:10px;
-        background: var(--surface);
-        border:1px solid var(--border);
-        border-radius: 14px;
-        padding: 6px 8px 6px 15px;
-        box-shadow: var(--shadow);
-        transition: border-color .15s ease, box-shadow .18s ease;
+      /* ---------- Floating quick-capture (FAB) ----------
+         A round + button pinned bottom-right; clicking pops a small
+         capture card above it. Stays out of the way and never collides
+         with the page content or the notifications panel. */
+      .qc-fab-wrap { position: fixed; right: 26px; bottom: 26px; z-index: 65; display:flex; flex-direction:column; align-items:flex-end; gap:12px; }
+      .qc-fab {
+        width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
+        display:flex; align-items:center; justify-content:center; color:#fff;
+        background: var(--primary-grad);
+        box-shadow: 0 6px 16px rgba(29,53,87,0.32), 0 2px 4px rgba(0,0,0,0.12);
+        transition: transform .16s cubic-bezier(.22,.61,.36,1), box-shadow .18s ease, filter .15s ease;
       }
-      .quick-capture:focus-within { border-color: var(--primary); box-shadow: var(--ring), var(--shadow-md); }
-      .qc-icon { color: var(--accent); flex-shrink:0; filter: drop-shadow(0 2px 5px rgba(242,153,74,0.3)); }
-      .qc-input {
-        flex:1; min-width:0; border:none; outline:none; background:none;
-        font-family:'Inter',sans-serif; font-size:15px; color: var(--text); padding:8px 0;
+      .qc-fab:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 12px 26px rgba(29,53,87,0.36); filter: brightness(1.05); }
+      .qc-fab:active { transform: scale(0.96); }
+      .qc-fab.open { background: var(--surface); color: var(--text); border:1px solid var(--border); box-shadow: var(--shadow-md); }
+      .qc-fab:focus-visible { outline:none; box-shadow: var(--ring), 0 6px 16px rgba(29,53,87,0.32); }
+
+      .qc-fab-panel {
+        width: 340px; max-width: calc(100vw - 52px);
+        background: var(--surface); border:1px solid var(--border); border-radius:16px;
+        box-shadow: var(--shadow-lg); padding:14px;
+        display:flex; flex-direction:column; gap:10px;
+        animation: fab-in .18s cubic-bezier(.22,.61,.36,1) both; transform-origin: bottom right;
       }
-      .qc-input::placeholder { color: var(--text-muted); opacity:0.85; }
+      @keyframes fab-in { from { opacity:0; transform: translateY(10px) scale(0.97); } to { opacity:1; transform:none; } }
+      .qc-fab-head { display:flex; align-items:center; justify-content:space-between; }
+      .qc-fab-head > span { display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13.5px; font-family:'Space Grotesk',sans-serif; }
+      .qc-fab-head > span svg { color: var(--accent); }
+      .qc-fab-page { display:inline-flex; align-items:center; gap:5px; background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted); font-size:11.5px; font-weight:600; padding:5px 9px; border-radius:8px; cursor:pointer; transition: background .15s ease, color .15s ease; }
+      .qc-fab-page:hover { background: var(--border); color: var(--text); }
+      .qc-fab-input {
+        width:100%; border:1px solid var(--border); border-radius:10px; padding:11px 12px;
+        background: var(--surface-2); color: var(--text); font-size:14px; font-family:'Inter',sans-serif; outline:none;
+        transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+      }
+      .qc-fab-input:focus { border-color: var(--primary); background: var(--surface); box-shadow: var(--ring); }
+      .qc-fab-input::placeholder { color: var(--text-muted); }
+      .qc-fab-foot { display:flex; align-items:center; justify-content:space-between; }
+      .qc-fab-hint { font-size:11.5px; color: var(--text-muted); }
       .qc-add {
-        display:inline-flex; align-items:center; gap:5px; flex-shrink:0;
+        display:inline-flex; align-items:center; gap:6px; flex-shrink:0;
         background: var(--primary-grad); color:#fff; border:none;
         padding:9px 15px; border-radius:10px; font-size:13px; font-weight:600;
         font-family:'Inter',sans-serif; cursor:pointer;
-        box-shadow: 0 2px 6px rgba(29,53,87,0.25); transition: filter .15s ease, transform .1s ease;
-        animation: chip-in .14s ease both;
+        box-shadow: 0 2px 6px rgba(29,53,87,0.25); transition: filter .15s ease, transform .1s ease, opacity .15s ease;
       }
-      .qc-add:hover { filter: brightness(1.06); transform: translateY(-1px); }
-      .qc-expand {
-        display:inline-flex; align-items:center; gap:6px; flex-shrink:0;
-        background: var(--accent-soft); color: var(--accent); border:1px solid transparent;
-        padding:9px 13px; border-radius:10px; font-size:12.5px; font-weight:600;
-        font-family:'Inter',sans-serif; cursor:pointer; transition: background .15s ease;
+      .qc-add:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+      .qc-add:disabled { opacity:0.5; cursor:default; }
+      .qc-add:focus-visible { outline:none; box-shadow: var(--ring); }
+
+      @media (max-width: 760px) {
+        .qc-fab-wrap { right: 16px; bottom: 16px; }
       }
-      .qc-expand:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-      .qc-expand:focus-visible, .qc-add:focus-visible { outline:none; box-shadow: var(--ring); }
 
       .topbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 
@@ -294,6 +313,17 @@ export function GlobalStyle() {
       .quote { font-style: italic; color: var(--text-muted); font-size:14px; line-height:1.5; }
       .page-head-row { display:flex; justify-content:space-between; align-items:flex-end; }
 
+      /* Calm Today header: greeting, title, and a slim progress bar with a
+         one-line summary — no big ring, no pill row, no quote. */
+      .today-head { display:flex; flex-direction:column; gap:4px; }
+      .today-head .page-title { font-size:34px; margin:4px 0 2px; }
+      .today-meta { display:flex; align-items:center; gap:14px; margin-top:12px; flex-wrap:wrap; }
+      .progress-slim { width:200px; max-width:46vw; height:8px; border-radius:6px; background: var(--surface-2); overflow:hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+      .progress-slim > span { display:block; height:100%; border-radius:6px; background: var(--accent-grad); transition: width .5s cubic-bezier(.22,.61,.36,1); }
+      .today-meta-text { font-size:13px; color: var(--text-muted); }
+      .today-meta-text strong { color: var(--text); font-weight:600; }
+      .meta-warn { color: var(--danger); font-weight:600; }
+
       .hero-row { display:flex; justify-content:space-between; align-items:center; gap: 24px; flex-wrap:wrap; }
       .hero-row .page-title { font-size:36px; line-height:1.1; margin:6px 0 8px; }
       .hero-text .eyebrow { color: var(--accent); opacity:1; font-weight:700; }
@@ -325,16 +355,14 @@ export function GlobalStyle() {
       .cat-card { position:relative; background:var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding:18px 18px 16px; box-shadow: var(--shadow); display:flex; flex-direction:column; gap:10px; min-height:140px; transition: outline-color .15s, background .15s, transform .14s ease, box-shadow .18s ease; outline: 2px dashed transparent; outline-offset: 2px; overflow:hidden; }
       /* A full-width top accent bar in the category color — crisper than a
          3px border and lets the card keep a uniform 1px frame all around. */
-      .cat-card::before { content:""; position:absolute; left:0; right:0; top:0; height:3px; background: var(--cat-color); opacity:0.9; }
       .cat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
       .cat-card.drag-over { outline-color: var(--cat-color); background: var(--cat-soft); }
       .cat-card-head { display:flex; justify-content:space-between; align-items:center; }
-      .cat-title { display:flex; align-items:center; gap:10px; font-weight:700; font-size:14.5px; color: var(--text); font-family:'Space Grotesk',sans-serif; letter-spacing:0.005em; }
-      /* Colored rounded icon badge — the clear visual anchor for each
-         section, Notion/Linear style. The label text stays neutral so the
-         color reads from the badge (and the card's top accent bar). */
-      .cat-badge { width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center; background: var(--cat-soft); color: var(--cat-color); flex-shrink:0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cat-color) 24%, transparent); }
-      .htd-badge { width:30px; height:30px; border-radius:10px; display:flex; align-items:center; justify-content:center; background: var(--accent-soft); color: var(--accent); flex-shrink:0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent); }
+      /* Calm, Notion-style section label: a small colored dot + neutral
+         text + a muted count. Minimal color, no heavy badge or bar. */
+      .cat-title { display:flex; align-items:center; gap:9px; font-weight:700; font-size:14px; color: var(--text); font-family:'Space Grotesk',sans-serif; letter-spacing:0.005em; }
+      .cat-dot { width:9px; height:9px; border-radius:50%; background: var(--cat-color); flex-shrink:0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-color) 16%, transparent); }
+      .cat-count { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:500; color: var(--text-muted); margin-left:2px; }
       .cat-title.muted { color: var(--text-muted); }
       .empty-hint { color: var(--text-muted); font-size:12.5px; padding: 8px 2px; }
       .empty-hint.big { padding: 30px; text-align:center; background:var(--surface); border:1px dashed var(--border); border-radius:var(--radius); }
@@ -653,10 +681,7 @@ export function GlobalStyle() {
 
         .main-panel { padding: 16px; }
         .app-header { margin: 0 0 16px; padding-bottom: 12px; }
-        .quick-capture { padding: 5px 6px 5px 12px; }
-        .qc-input { font-size:14px; }
-        .qc-expand span { display:none; }
-        .qc-expand { padding:9px 11px; }
+        .today-head .page-title { font-size:28px; }
       }
     `}</style>
   );

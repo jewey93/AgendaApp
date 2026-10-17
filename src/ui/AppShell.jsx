@@ -14,7 +14,7 @@
  * below it in src/domain and src/data don't need a single edit.
  * ------------------------------------------------------------------
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Flame, Plus, X, Check, Trash2, Copy, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Search, Filter,
   Moon, Sun, Timer, Sparkles, Droplet, Weight, BarChart3, CalendarDays, CalendarRange,
@@ -133,7 +133,6 @@ export default function AppShell({ state, userEmail, onLogout }) {
       <main className="main-panel">
         {view !== "capture" && (
           <div className="app-header">
-            <QuickCapture addTasksFromCapture={addTasksFromCapture} onOpenFull={() => setView("capture")} />
             <TopBar query={query} setQuery={setQuery} filterCat={filterCat} setFilterCat={setFilterCat}
               onNewTask={() => setModal({ type: "task", data: { date: view === "today" ? today : selectedDate } })} />
           </div>
@@ -203,6 +202,10 @@ export default function AppShell({ state, userEmail, onLogout }) {
 
         {view === "stats" && <StatsView tasks={tasks} goals={goals} streak={streak} />}
       </main>
+
+      {view !== "capture" && (
+        <QuickCaptureFab addTasksFromCapture={addTasksFromCapture} onOpenFull={() => setView("capture")} />
+      )}
 
       {modal?.type === "task" && (
         <TaskModal data={modal.data} onClose={() => setModal(null)}
@@ -294,36 +297,67 @@ function Sidebar({ view, setView, dark, setDark, pomodoro, setPomodoro, streak, 
   );
 }
 
-/* ========================== QUICK CAPTURE BAR ========================== */
-// The always-visible way to add a task from ANY view — type a line, press
-// Enter, done. It reuses the exact same parser/action as the full Capture
-// page (addTasksFromCapture), so shorthand like "gym 7am !high @fitness"
-// works here too. This is what keeps capture one keystroke away no matter
-// where you are in the app, instead of having to navigate to the Capture
-// screen first.
-function QuickCapture({ addTasksFromCapture, onOpenFull }) {
+/* ========================== QUICK CAPTURE (FAB) ========================== */
+// A floating "+" button pinned bottom-right. Click it (or press "c") and a
+// small capture field pops up above it — type a line, press Enter, done.
+// Reuses the same parser/action as the full Capture page, so shorthand
+// like "gym 7am !high @fitness" works here too. Out of the way until you
+// want it, so it never competes with the page content or the notifications.
+function QuickCaptureFab({ addTasksFromCapture, onOpenFull }) {
+  const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
+  const wrapRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    const onDocMouseDown = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+      // Press "c" anywhere (outside a text field) to pop capture open.
+      const tag = (e.target.tagName || "").toLowerCase();
+      const typing = tag === "input" || tag === "textarea" || e.target.isContentEditable;
+      if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey && (e.key === "c" || e.key === "C")) {
+        setOpen(true);
+      }
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDocMouseDown); document.removeEventListener("keydown", onKey); };
+  }, []);
+
+  useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 10); }, [open]);
+
   const submit = () => {
     if (!text.trim()) return;
     const n = addTasksFromCapture(text);
-    if (n) setText("");
+    if (n) { setText(""); setOpen(false); }
   };
+
   return (
-    <div className="quick-capture">
-      <Feather size={18} className="qc-icon" />
-      <input
-        className="qc-input"
-        placeholder="Add a task — type and press Enter  ·  try “gym 7am !high @fitness”"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }}
-        aria-label="Quick add a task"
-      />
-      {text.trim() && (
-        <button className="qc-add" onClick={submit}><Plus size={15} /> Add</button>
+    <div className="qc-fab-wrap" ref={wrapRef}>
+      {open && (
+        <div className="qc-fab-panel">
+          <div className="qc-fab-head">
+            <span><Feather size={14} /> Quick capture</span>
+            <button className="qc-fab-page" onClick={onOpenFull} title="Open the full Capture page"><Sparkles size={13} /> Full page</button>
+          </div>
+          <input
+            ref={inputRef}
+            className="qc-fab-input"
+            placeholder="e.g. gym 7am !high @fitness"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }}
+            aria-label="Quick add a task"
+          />
+          <div className="qc-fab-foot">
+            <span className="qc-fab-hint"><span className="capture-kbd">Enter</span> to add</span>
+            <button className="qc-add" onClick={submit} disabled={!text.trim()}><Plus size={15} /> Add task</button>
+          </div>
+        </div>
       )}
-      <button className="qc-expand" onClick={onOpenFull} title="Open the full Capture page">
-        <Sparkles size={14} /> <span>Capture page</span>
+      <button className={"qc-fab" + (open ? " open" : "")} onClick={() => setOpen((o) => !o)} aria-label={open ? "Close quick capture" : "Quick capture"} title="Quick capture (c)">
+        {open ? <X size={22} /> : <Plus size={24} />}
       </button>
     </div>
   );
@@ -384,37 +418,23 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
 
   return (
     <div className="view-scroll">
-      <div className="hero-row">
-        <div className="hero-text">
-          <div className="eyebrow">{greeting} · {fmtDate(today)}</div>
-          <h1 className="page-title">Today's agenda</h1>
-          <p className="quote">"{quote}"</p>
+      <header className="today-head">
+        <div className="eyebrow">{greeting} · {fmtDate(today)}</div>
+        <h1 className="page-title">Today</h1>
+        <div className="today-meta">
+          <div className="progress-slim"><span style={{ width: `${pctToday}%` }} /></div>
+          <span className="today-meta-text">
+            <strong>{completedToday} of {todayTasks.length}</strong> done
+            {overdue.length > 0 && <> · <span className="meta-warn">{overdue.length} overdue</span></>}
+            {streak > 0 && <> · {streak}-day streak</>}
+          </span>
         </div>
-        <div className="today-ring">
-          <svg viewBox="0 0 120 120" className="ring-svg">
-            <defs>
-              <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="var(--accent-2)" />
-                <stop offset="100%" stopColor="var(--accent)" />
-              </linearGradient>
-            </defs>
-            <circle cx="60" cy="60" r="52" className="ring-bg" />
-            <circle cx="60" cy="60" r="52" className="ring-fg" style={{ strokeDasharray: 326.7, strokeDashoffset: 326.7 - (326.7 * pctToday) / 100 }} />
-          </svg>
-          <div className="ring-label"><strong>{pctToday}%</strong><span>done</span></div>
-        </div>
-      </div>
-
-      <div className="stat-strip">
-        <div className="stat-pill"><Check size={14} /> {completedToday}/{todayTasks.length} tasks</div>
-        <div className="stat-pill warn"><Bell size={14} /> {overdue.length} overdue</div>
-        <div className="stat-pill accent"><Award size={14} /> {streak}-day streak</div>
-      </div>
+      </header>
 
       {haveToDo.length > 0 && (
         <section className="htd-rail">
           <div className="htd-rail-head">
-            <span className="htd-badge"><Flame size={15} /></span>
+            <Flame size={15} className="htd-flame" />
             <span>Have To Do — non-negotiables</span>
             <span className="htd-count">{htdDone}/{haveToDo.length}</span>
           </div>
@@ -447,7 +467,6 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
 /* ============================== CATEGORY CARD (drag-and-drop target) ============================== */
 function CategoryCard({ category, tasks, today, onToggle, onEdit, onDelete, onDuplicate, onReorder, onMoveToCategory, onAdd, isDragOver, onDragEnterZone, onDragLeaveZone, onDropZone }) {
   const list = sortDoneToBottom(tasks);
-  const Icon = CATEGORY_VISUALS[category].icon;
   return (
     <section
       className={"cat-card" + (isDragOver ? " drag-over" : "")}
@@ -457,7 +476,7 @@ function CategoryCard({ category, tasks, today, onToggle, onEdit, onDelete, onDu
       onDrop={(e) => { e.preventDefault(); onDropZone(); const fromId = e.dataTransfer.getData("text/plain"); if (fromId && onMoveToCategory) onMoveToCategory(fromId, category); }}
     >
       <div className="cat-card-head">
-        <div className="cat-title"><span className="cat-badge"><Icon size={15} /></span> {CATEGORIES[category].label}</div>
+        <div className="cat-title"><span className="cat-dot" /> {CATEGORIES[category].label} <span className="cat-count">{list.length || ""}</span></div>
         <button className="icon-btn tiny" onClick={() => onAdd(category)}><Plus size={14} /></button>
       </div>
       {list.length === 0 ? <div className="empty-hint">Drag a task here, or nothing's here yet.</div> :
