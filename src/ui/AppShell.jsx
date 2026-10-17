@@ -360,6 +360,8 @@ const sortDoneToBottom = (list) => [...list].sort((a, b) => (a.completed === b.c
 function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote, streak, onToggle, onEdit, onDelete, onDuplicate, onAdd, onReorder, onMoveToCategory }) {
   const haveToDo = sortDoneToBottom(todayTasks.filter((t) => t.category === "haveToDo")).slice(0, 5);
   const htdDone = haveToDo.filter((t) => t.completed).length;
+  const hr = new Date().getHours();
+  const greeting = hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
 
   // Which drop zone ("haveToDo" or a category key) is currently
   // highlighted while dragging. Lifted up here — rather than each card
@@ -383,8 +385,8 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
   return (
     <div className="view-scroll">
       <div className="hero-row">
-        <div>
-          <div className="eyebrow">{fmtDate(today)}</div>
+        <div className="hero-text">
+          <div className="eyebrow">{greeting} · {fmtDate(today)}</div>
           <h1 className="page-title">Today's agenda</h1>
           <p className="quote">"{quote}"</p>
         </div>
@@ -412,7 +414,7 @@ function TodayView({ today, todayTasks, pctToday, completedToday, overdue, quote
       {haveToDo.length > 0 && (
         <section className="htd-rail">
           <div className="htd-rail-head">
-            <Flame size={16} className="htd-flame" />
+            <span className="htd-badge"><Flame size={15} /></span>
             <span>Have To Do — non-negotiables</span>
             <span className="htd-count">{htdDone}/{haveToDo.length}</span>
           </div>
@@ -455,7 +457,7 @@ function CategoryCard({ category, tasks, today, onToggle, onEdit, onDelete, onDu
       onDrop={(e) => { e.preventDefault(); onDropZone(); const fromId = e.dataTransfer.getData("text/plain"); if (fromId && onMoveToCategory) onMoveToCategory(fromId, category); }}
     >
       <div className="cat-card-head">
-        <div className="cat-title"><Icon size={16} /> {CATEGORIES[category].label}</div>
+        <div className="cat-title"><span className="cat-badge"><Icon size={15} /></span> {CATEGORIES[category].label}</div>
         <button className="icon-btn tiny" onClick={() => onAdd(category)}><Plus size={14} /></button>
       </div>
       {list.length === 0 ? <div className="empty-hint">Drag a task here, or nothing's here yet.</div> :
