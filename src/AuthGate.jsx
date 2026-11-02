@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "./data/supabaseClient";
 import EncryptionGate from "./EncryptionGate.jsx";
-import { LogIn, UserPlus, Loader2, Sparkles, KeyRound, ArrowLeft } from "lucide-react";
+import { LogIn, UserPlus, Loader2, Sparkles, KeyRound, ArrowLeft, ShieldCheck } from "lucide-react";
 
 export default function AuthGate() {
   const [session, setSession] = useState(undefined); // undefined = loading, null = logged out
@@ -13,11 +13,18 @@ export default function AuthGate() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  // Two-factor gate: 'unknown' while we check the account's assurance
+  // level, 'required' when a verified 2FA factor exists and this session is
+  // still at aal1 (needs a code), 'passed' once it's satisfied (or none set
+  // up). See Supabase MFA: getAuthenticatorAssuranceLevel.
+  const [mfaStatus, setMfaStatus] = useState("unknown");
+  const [mfaCode, setMfaCode] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((event, sess) => {
       setSession(sess);
+      if (!sess) setMfaStatus("unknown");
       // Clicking the "reset password" link in the email brings the person
       // back with a temporary recovery session and this event fires — that's
       // the signal to show the "choose a new password" form instead of the
@@ -26,6 +33,43 @@ export default function AuthGate() {
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Whenever we have a (non-recovery) session, work out whether 2FA still
+  // needs to be satisfied for this session before the app is shown.
+  useEffect(() => {
+    if (!session || mode === "reset") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (cancelled) return;
+        if (error) { setMfaStatus("passed"); return; } // fail open to password-only rather than lock out
+        const needs = data?.nextLevel === "aal2" && data?.currentLevel !== "aal2";
+        setMfaStatus(needs ? "required" : "passed");
+      } catch { if (!cancelled) setMfaStatus("passed"); }
+    })();
+    return () => { cancelled = true; };
+  }, [session, mode]);
+
+  const submitMfa = async (e) => {
+    e.preventDefault();
+    clearMessages();
+    setBusy(true);
+    try {
+      const { data: factorsData, error: listErr } = await supabase.auth.mfa.listFactors();
+      if (listErr) throw listErr;
+      const factor = (factorsData?.totp || []).find((f) => f.status === "verified") || factorsData?.totp?.[0];
+      if (!factor) { setMfaStatus("passed"); return; }
+      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: mfaCode.trim() });
+      if (error) throw error;
+      setMfaCode("");
+      setMfaStatus("passed");
+    } catch (err) {
+      setError(err.message || "That code didn't match. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const clearMessages = () => { setError(""); setNotice(""); };
 
@@ -183,6 +227,44 @@ export default function AuthGate() {
             {mode === "login" ? "Need an account? Sign up" : "Already have an account? Log in"}
           </button>
         </div>
+      </AuthShell>
+    );
+  }
+
+  // Signed in with password, but a verified 2FA factor exists and this
+  // session hasn't cleared it yet — ask for the authenticator code before
+  // handing off to the app.
+  if (session && mfaStatus === "required") {
+    return (
+      <AuthShell>
+        <div className="auth-card">
+          <div className="auth-brand"><ShieldCheck size={18} /> Two-factor verification</div>
+          <p className="auth-sub">Enter the 6-digit code from your authenticator app to finish signing in.</p>
+          {error && <div className="auth-msg error">{error}</div>}
+          <form onSubmit={submitMfa}>
+            <label>
+              <span>Authentication code</span>
+              <input
+                type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6}
+                autoFocus required value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="123456"
+              />
+            </label>
+            <button type="submit" disabled={busy || mfaCode.length < 6}>
+              <ShieldCheck size={16} /> {busy ? "Verifying…" : "Verify"}
+            </button>
+          </form>
+          <button className="auth-switch" onClick={() => supabase.auth.signOut()}>Sign out</button>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (mfaStatus === "unknown") {
+    return (
+      <AuthShell>
+        <div className="auth-loading"><Loader2 size={22} className="spin" /> Checking…</div>
       </AuthShell>
     );
   }
