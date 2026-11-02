@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "./data/supabaseClient";
-import EncryptionGate from "./EncryptionGate.jsx";
+import App from "./App.jsx";
 import { LogIn, UserPlus, Loader2, Sparkles, KeyRound, ArrowLeft, ShieldCheck } from "lucide-react";
 
 export default function AuthGate() {
@@ -144,7 +144,7 @@ export default function AuthGate() {
       <AuthShell>
         <div className="auth-card">
           <div className="auth-brand"><KeyRound size={18} /> Choose a new password</div>
-          <p className="auth-sub">This only changes your login password — it has no effect on your encryption passphrase.</p>
+          <p className="auth-sub">Choose a new password for your account.</p>
           {error && <div className="auth-msg error">{error}</div>}
           {notice && <div className="auth-msg notice">{notice}</div>}
           <form onSubmit={submitNewPassword}>
@@ -269,7 +269,7 @@ export default function AuthGate() {
     );
   }
 
-  return <EncryptionGate session={session} onLogout={() => supabase.auth.signOut()} />;
+  return <App session={session} onLogout={() => supabase.auth.signOut()} />;
 }
 
 /**

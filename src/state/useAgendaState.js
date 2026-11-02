@@ -43,7 +43,7 @@ function seedTasks() {
   ];
 }
 
-export function useAgendaState(encryptionKey) {
+export function useAgendaState() {
   const [ready, setReady] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [goals, setGoals] = useState([]);
@@ -57,28 +57,22 @@ export function useAgendaState(encryptionKey) {
   const [pomodoro, setPomodoro] = useState(DEFAULT_POMODORO);
   const [toast, setToast] = useState(null);
   const recurrenceCheckedRef = useRef(false);
-  // React.StrictMode (see main.jsx) intentionally mounts every component
-  // twice in dev to surface effects that aren't safe to run more than
-  // once. The load effect below has no cleanup, so without this guard
-  // it fires its async load a second, fully redundant time on every dev
-  // reload — and if that second load resolves AFTER the recurrence
-  // effect has already appended today's generated occurrence, its
-  // `setTasks(...)` overwrites state with the pre-generation data,
-  // silently discarding the new occurrence before it's ever saved. The
-  // next reload then generates another one — which is what produced
-  // repeated "30 min run" tasks piling up. Guarding by encryptionKey
-  // makes the load idempotent per key, closing the race at its source.
-  const loadedKeyRef = useRef(null);
+  // React.StrictMode (see main.jsx) mounts every component twice in dev to
+  // surface effects that aren't safe to run more than once. This guard
+  // makes the initial load run exactly once so a redundant second load
+  // can't resolve late and clobber state the recurrence effect already
+  // updated (which used to pile up duplicate generated tasks).
+  const loadedRef = useRef(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
 
-  // ---- load once on mount (waits for the encryption key) ----
+  // ---- load once on mount ----
   useEffect(() => {
-    if (!encryptionKey || loadedKeyRef.current === encryptionKey) return;
-    loadedKeyRef.current = encryptionKey;
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     (async () => {
       try {
-        const d = await loadAgendaData(encryptionKey);
+        const d = await loadAgendaData();
         if (d) {
           setTasks(d.tasks?.length ? d.tasks : seedTasks());
           setGoals(d.goals || []);
@@ -99,28 +93,24 @@ export function useAgendaState(encryptionKey) {
           setTasks(seedTasks());
         }
       } catch (e) {
-        // EncryptionGate already verified the passphrase before this hook
-        // ever ran, so reaching here means something unexpected happened
-        // (corrupted data, etc) — leave state empty rather than silently
-        // replacing real data with demo tasks.
         console.error("Failed to load agenda data:", e);
       }
       setReady(true);
     })();
-  }, [encryptionKey]);
+  }, []);
 
   // ---- debounced save on any change ----
   useEffect(() => {
-    if (!ready || !encryptionKey) return;
+    if (!ready) return;
     const h = setTimeout(() => {
       // A failed save used to fail completely silently, which made
       // symptoms like "my changes don't survive a refresh" impossible to
       // diagnose from the console. Now it's at least logged.
-      saveAgendaData({ tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro }, encryptionKey)
+      saveAgendaData({ tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro })
         .catch((e) => console.error("Failed to save agenda data:", e));
     }, 400);
     return () => clearTimeout(h);
-  }, [tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro, ready, encryptionKey]);
+  }, [tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro, ready]);
 
   // ---- pomodoro ticking ----
   // Lives here (rather than in the UI) so it's part of the same state
