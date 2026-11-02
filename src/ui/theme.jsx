@@ -183,6 +183,8 @@ export function GlobalStyle() {
       .theme-toggle:hover { background:rgba(255,255,255,0.12); }
       .account-block { margin-top: auto; }
       .account-email { font-size:11.5px; color:#C7D3E5; word-break:break-all; margin-bottom:8px; }
+      .account-block .theme-toggle { margin-top:0; margin-bottom:8px; }
+      .account-block .logout-btn { margin-bottom:0; }
       .logout-btn { margin-top:0; width:100%; }
 
       .main-panel { flex:1; min-width:0; padding: 26px 40px 84px; }
@@ -530,6 +532,19 @@ export function GlobalStyle() {
       .linked-task-list { max-height:160px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:4px 8px; margin-top:6px; background: var(--surface-2); }
 
       .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background: var(--text); color: var(--bg); padding:10px 18px; border-radius:10px; font-size:13px; font-weight:600; z-index:60; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+
+      /* ---------- Two-factor (Security) modal ---------- */
+      .sec-text { font-size:13px; color: var(--text-muted); line-height:1.55; margin:0; }
+      .sec-status { display:flex; align-items:center; gap:8px; font-size:13.5px; padding:10px 12px; border-radius:10px; font-weight:500; }
+      .sec-status.on { background: var(--secondary-soft); color: var(--secondary); }
+      .sec-status.off { background: var(--surface-2); color: var(--text-muted); }
+      .sec-status strong { font-weight:700; }
+      .sec-qr { display:flex; align-items:center; justify-content:center; padding:14px; background:#fff; border:1px solid var(--border); border-radius:12px; }
+      .sec-qr-img { width:180px; height:180px; display:block; }
+      .sec-qr-img svg { width:180px; height:180px; display:block; }
+      .sec-secret { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; font-family:'IBM Plex Mono',monospace; font-size:12.5px; letter-spacing:0.04em; color: var(--text); background: var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:9px 12px; cursor:pointer; transition: border-color .15s ease; }
+      .sec-secret:hover { border-color: var(--primary); }
+      .sec-secret span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
       /* ---------- Capture screen (rapid entry) ----------
          Flows naturally in the page (min-height, not a locked full-screen

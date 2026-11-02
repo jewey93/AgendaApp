@@ -19,7 +19,7 @@ import {
   Flame, Plus, X, Check, Trash2, Copy, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Search, Filter,
   Moon, Sun, Timer, Sparkles, Droplet, Weight, BarChart3, CalendarDays, CalendarRange,
   Calendar, LayoutDashboard, Tag, Clock, StickyNote, Bell, Play, Pause, RotateCcw,
-  Download, GripVertical, TrendingUp, Award, Edit3, LogOut, Feather, BookOpen, Menu,
+  Download, GripVertical, TrendingUp, Award, Edit3, LogOut, Feather, BookOpen, Menu, ShieldCheck,
 } from "lucide-react";
 import { CATEGORY_KEYS, CATEGORIES, PRIORITIES, PRIORITY_KEYS, RECURRENCE_OPTIONS } from "../domain/taskModel.js";
 import { generateId } from "../domain/id.js";
@@ -29,6 +29,7 @@ import { CATEGORY_VISUALS, PRIORITY_VISUALS, QUOTES, GlobalStyle } from "./theme
 import CaptureView from "./CaptureView.jsx";
 import JournalView from "./JournalView.jsx";
 import ReminderBell from "./ReminderBell.jsx";
+import SecurityModal from "./SecurityModal.jsx";
 import { useReminders } from "../state/useReminders.js";
 
 export default function AppShell({ state, userEmail, onLogout }) {
@@ -47,6 +48,7 @@ export default function AppShell({ state, userEmail, onLogout }) {
   const [filterCat, setFilterCat] = useState("all");
   const [modal, setModal] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
 
   // pomodoro ticking now lives in useAgendaState (see src/state/useAgendaState.js)
   // so an in-progress focus session survives a page refresh instead of
@@ -127,7 +129,7 @@ export default function AppShell({ state, userEmail, onLogout }) {
 
       <Sidebar view={view} setView={(v) => { setView(v); setMobileNavOpen(false); }} dark={dark} setDark={setDark} pomodoro={pomodoro} setPomodoro={setPomodoro}
         streak={streak} exportCSV={exportCSV} exportPDF={exportPDF} userEmail={userEmail} onLogout={onLogout}
-        reminders={reminders} onReminderTaskClick={openTaskFromReminder}
+        reminders={reminders} onReminderTaskClick={openTaskFromReminder} onOpenSecurity={() => setSecurityOpen(true)}
         mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
 
       <main className="main-panel">
@@ -219,13 +221,14 @@ export default function AppShell({ state, userEmail, onLogout }) {
           onDelete={(id) => { deleteGoal(id); setModal(null); }}
         />
       )}
+      {securityOpen && <SecurityModal onClose={() => setSecurityOpen(false)} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }
 
 /* ============================== SIDEBAR ============================== */
-function Sidebar({ view, setView, dark, setDark, pomodoro, setPomodoro, streak, exportCSV, exportPDF, userEmail, onLogout, reminders, onReminderTaskClick, mobileOpen, onCloseMobile }) {
+function Sidebar({ view, setView, dark, setDark, pomodoro, setPomodoro, streak, exportCSV, exportPDF, userEmail, onLogout, reminders, onReminderTaskClick, onOpenSecurity, mobileOpen, onCloseMobile }) {
   const nav = [
     { key: "capture", label: "Capture", icon: Feather, highlight: true },
     { key: "today", label: "Today", icon: LayoutDashboard },
@@ -284,6 +287,9 @@ function Sidebar({ view, setView, dark, setDark, pomodoro, setPomodoro, streak, 
         <div className="sidebar-block account-block">
           <div className="sidebar-block-title">Account</div>
           <div className="account-email" title={userEmail}>{userEmail}</div>
+          <button className="theme-toggle" onClick={onOpenSecurity}>
+            <ShieldCheck size={16} /> <span>Two-factor auth</span>
+          </button>
           <button className="theme-toggle logout-btn" onClick={onLogout}>
             <LogOut size={16} /> <span>Log out</span>
           </button>
