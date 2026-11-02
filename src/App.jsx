@@ -12,7 +12,7 @@ import React from "react";
 import { useAgendaState } from "./state/useAgendaState.js";
 import AppShell from "./ui/AppShell.jsx";
 
-export default function App({ session, onLogout, encryptionKey }) {
-  const agendaState = useAgendaState(encryptionKey);
+export default function App({ session, onLogout }) {
+  const agendaState = useAgendaState();
   return <AppShell state={agendaState} userEmail={session?.user?.email} onLogout={onLogout} />;
 }
