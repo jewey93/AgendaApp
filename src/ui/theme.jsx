@@ -131,6 +131,10 @@ export function GlobalStyle() {
       }
       /* Keep real content above the ambient background wash. */
       .sidebar, .main-panel, .mobile-topbar { position: relative; z-index: 1; }
+      /* Sidebar sits in a higher stacking layer than the main panel so its
+         notifications dropdown (which overhangs into the main content)
+         paints above that content instead of being clipped behind it. */
+      .sidebar { z-index: 40; }
       .app-root * { box-sizing: border-box; }
       /* Thin, theme-matched scrollbars everywhere instead of the
          browser's default chrome (the blocky arrow-button scrollbar
@@ -203,7 +207,7 @@ export function GlobalStyle() {
          A round + button pinned bottom-right; clicking pops a small
          capture card above it. Stays out of the way and never collides
          with the page content or the notifications panel. */
-      .qc-fab-wrap { position: fixed; right: 26px; bottom: 26px; z-index: 65; display:flex; flex-direction:column; align-items:flex-end; gap:12px; }
+      .qc-fab-wrap { position: fixed; right: 26px; bottom: 26px; z-index: 45; display:flex; flex-direction:column; align-items:flex-end; gap:12px; }
       .qc-fab {
         width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
         display:flex; align-items:center; justify-content:center; color:#fff;
