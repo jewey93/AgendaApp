@@ -34,7 +34,8 @@ import { useReminders } from "../state/useReminders.js";
 
 export default function AppShell({ state, userEmail, onLogout }) {
   const {
-    ready, tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro, toast,
+    ready, loadError, retryLoad,
+    tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro, toast,
     setFitness, setDayNotes, setWeekGoals, setDark, setPomodoro,
     addTask, addTasksFromCapture, updateTask, deleteTask, duplicateTask, toggleComplete, reorderTasks, moveTaskToCategory, rescheduleTask,
     saveGoal, deleteGoal, toggleMilestone, toggleLinkedTask,
@@ -111,6 +112,24 @@ export default function AppShell({ state, userEmail, onLogout }) {
     URL.revokeObjectURL(url);
   };
   const exportPDF = () => window.print();
+
+  if (loadError) {
+    // Something went wrong reading your data. We deliberately do NOT show an
+    // empty agenda here — an empty screen would look like data loss and, worse,
+    // any edit could save blanks over your real tasks. Instead we hold and let
+    // you retry, so your stored data stays untouched until it loads cleanly.
+    return (
+      <div className="app-root loading-screen">
+        <GlobalStyle />
+        <span style={{ fontSize: 15, fontWeight: 600 }}>We couldn't load your agenda</span>
+        <span style={{ opacity: 0.7, maxWidth: 340, textAlign: "center", lineHeight: 1.5 }}>
+          Your data is safe — we stopped before changing anything. This is usually a brief
+          connection hiccup. Try again, or refresh the page.
+        </span>
+        <button className="primary-btn" style={{ marginTop: 4 }} onClick={retryLoad}>Try again</button>
+      </div>
+    );
+  }
 
   if (!ready) {
     return <div className="app-root loading-screen"><GlobalStyle /><Sparkles size={28} className="spin-slow" /><span>Loading your agenda…</span></div>;
