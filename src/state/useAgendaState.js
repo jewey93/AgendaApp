@@ -22,6 +22,7 @@
  * ------------------------------------------------------------------
  */
 import { useState, useEffect, useCallback, useRef } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
 import { loadAgendaData, saveAgendaData } from "../data/taskRepository.js";
 import { createTask, computeStreak } from "../domain/taskModel.js";
 import { parseCaptureText } from "../domain/captureParser.js";
@@ -45,6 +46,11 @@ function seedTasks() {
 
 export function useAgendaState() {
   const [ready, setReady] = useState(false);
+  // True only when the initial load failed. The UI shows a "couldn't load /
+  // retry" screen instead of an empty agenda, so a transient error can never
+  // be mistaken for "my data is gone" and — critically — the save effect
+  // below never runs, so we never overwrite real stored data with blanks.
+  const [loadError, setLoadError] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [goals, setGoals] = useState([]);
   const [fitness, setFitness] = useState({ water: {}, weight: [] });
@@ -66,41 +72,64 @@ export function useAgendaState() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
 
-  // ---- load once on mount ----
+  // ---- load (runs once on mount; also re-runnable via retryLoad) ----
+  const loadData = useCallback(async () => {
+    setLoadError(false);
+    try {
+      const d = await loadAgendaData();
+      if (d) {
+        setTasks(d.tasks?.length ? d.tasks : seedTasks());
+        setGoals(d.goals || []);
+        setFitness(d.fitness || { water: {}, weight: [] });
+        setDayNotes(d.dayNotes || {});
+        setWeekGoals(d.weekGoals || []);
+        setJournalEntries(d.journalEntries || []);
+        setEvents(d.events || []);
+        setDark(!!d.dark);
+        // pomodoro is restored as-is (including a possibly-mid-countdown
+        // state) rather than reset, so a page refresh no longer wipes an
+        // in-progress focus session back to 25:00.
+        setPomodoro(d.pomodoro || DEFAULT_POMODORO);
+        // streak is recomputed below from actual task history rather
+        // than trusted from storage, so stale/incorrect saved values
+        // from before this fix self-correct automatically.
+      } else {
+        setTasks(seedTasks());
+      }
+      // Only now is it safe to persist: we have confirmed what's in storage
+      // (either real data or genuinely none). Flipping `ready` here — and
+      // ONLY here, never in the error path — is what lets the debounced save
+      // run. A failed load leaves `ready` false, so the save effect can never
+      // overwrite the user's stored tasks with empty/seed state.
+      setReady(true);
+    } catch (e) {
+      console.error("Failed to load agenda data:", e);
+      // Do NOT flip `ready` and do NOT seed — surface a retry screen instead.
+      // This is the fix for tasks silently vanishing: a transient load error
+      // used to fall through to an empty state that the save effect then
+      // wrote back over the real data.
+      setLoadError(true);
+    }
+  }, []);
+
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
-    (async () => {
-      try {
-        const d = await loadAgendaData();
-        if (d) {
-          setTasks(d.tasks?.length ? d.tasks : seedTasks());
-          setGoals(d.goals || []);
-          setFitness(d.fitness || { water: {}, weight: [] });
-          setDayNotes(d.dayNotes || {});
-          setWeekGoals(d.weekGoals || []);
-          setJournalEntries(d.journalEntries || []);
-          setEvents(d.events || []);
-          setDark(!!d.dark);
-          // pomodoro is restored as-is (including a possibly-mid-countdown
-          // state) rather than reset, so a page refresh no longer wipes an
-          // in-progress focus session back to 25:00.
-          setPomodoro(d.pomodoro || DEFAULT_POMODORO);
-          // streak is recomputed below from actual task history rather
-          // than trusted from storage, so stale/incorrect saved values
-          // from before this fix self-correct automatically.
-        } else {
-          setTasks(seedTasks());
-        }
-      } catch (e) {
-        console.error("Failed to load agenda data:", e);
-      }
-      setReady(true);
-    })();
-  }, []);
+    loadData();
+  }, [loadData]);
+
+  // Manual retry for the error screen. Resets the once-only guard so the
+  // load can actually run again.
+  const retryLoad = useCallback(() => {
+    loadedRef.current = true;
+    loadData();
+  }, [loadData]);
 
   // ---- debounced save on any change ----
   useEffect(() => {
+    // `ready` is true only after a *successful* load, so this never fires
+    // while the initial read is pending or has failed — the save can't race
+    // ahead of the load and blank out stored data.
     if (!ready) return;
     const h = setTimeout(() => {
       // A failed save used to fail completely silently, which made
@@ -312,7 +341,8 @@ export function useAgendaState() {
   }, [tasks]);
 
   return {
-    ready, tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro, toast,
+    ready, loadError, retryLoad,
+    tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro, toast,
     setFitness, setDayNotes, setWeekGoals, setDark, setPomodoro,
     addTask, addTasksFromCapture, updateTask, deleteTask, duplicateTask, toggleComplete, reorderTasks, moveTaskToCategory, rescheduleTask,
     saveGoal, deleteGoal, toggleMilestone, toggleLinkedTask,
