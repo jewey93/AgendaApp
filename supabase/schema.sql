@@ -59,6 +59,33 @@ before update on app_storage
 for each row execute procedure set_updated_at();
 
 -- ---------------------------------------------------------------------------
+-- Realtime: live sync across a user's devices/tabs
+-- ---------------------------------------------------------------------------
+-- The app subscribes to changes on app_storage (see src/data/storage.js
+-- subscribe()) so that adding/deleting a task on one device shows up on the
+-- others automatically, with no manual refresh. Supabase delivers those
+-- change events only for tables in the `supabase_realtime` publication, so
+-- add this table to it. Row Level Security still applies to Realtime, so each
+-- user receives events only for their own rows.
+--
+-- REPLICA IDENTITY FULL makes the full changed row (including `value`)
+-- available on the event, so the client can read the new state directly
+-- instead of making an extra round-trip.
+alter table app_storage replica identity full;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'app_storage'
+  ) then
+    alter publication supabase_realtime add table app_storage;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Optional: normalized tables for the future
 -- ---------------------------------------------------------------------------
 -- If down the line you want real SQL queries over individual tasks (e.g.

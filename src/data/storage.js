@@ -58,4 +58,46 @@ export const storage = {
     if (error) throw error;
     return { keys: (data || []).map((d) => d.key), prefix, shared };
   },
+
+  /**
+   * Live updates. Subscribes to Postgres change events on THIS user's rows
+   * (via Supabase Realtime) and calls `handler(payload)` whenever the given
+   * key changes — including writes made from another device or browser tab.
+   * Returns an unsubscribe function.
+   *
+   * Realtime must be enabled for the app_storage table (see
+   * supabase/schema.sql — it's added to the supabase_realtime publication).
+   * Row Level Security still applies, so a user only ever receives events
+   * for their own rows.
+   */
+  subscribe(key, shared = false, handler) {
+    let channel = null;
+    let cancelled = false;
+    (async () => {
+      let user_id;
+      try {
+        user_id = await currentUserId();
+      } catch {
+        return; // not signed in yet; nothing to subscribe to
+      }
+      if (cancelled) return;
+      channel = supabase
+        .channel(`app_storage:${user_id}:${key}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "app_storage", filter: `user_id=eq.${user_id}` },
+          (payload) => {
+            // The Realtime filter can only match one column, so narrow to the
+            // specific key/shared slot here.
+            const row = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
+            if (row && row.key === key && row.shared === shared) handler(payload);
+          }
+        )
+        .subscribe();
+    })();
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  },
 };

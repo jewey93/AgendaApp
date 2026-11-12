@@ -23,7 +23,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 /* eslint-disable react-hooks/exhaustive-deps */
-import { loadAgendaData, saveAgendaData } from "../data/taskRepository.js";
+import { loadAgendaData, saveAgendaData, subscribeAgenda } from "../data/taskRepository.js";
 import { createTask, computeStreak } from "../domain/taskModel.js";
 import { parseCaptureText } from "../domain/captureParser.js";
 import { todayISO } from "../domain/dateUtils.js";
@@ -69,8 +69,32 @@ export function useAgendaState() {
   // can't resolve late and clobber state the recurrence effect already
   // updated (which used to pile up duplicate generated tasks).
   const loadedRef = useRef(false);
+  // The JSON of the last agenda we persisted OR applied from a live sync.
+  // The save effect compares against it and skips writing when nothing
+  // actually changed. This is also what breaks the echo loop with live sync:
+  // when we apply an update pushed from another device we set this to that
+  // same content, so we don't immediately write it straight back out (which
+  // the other device would then re-apply and re-send, forever).
+  const lastPersistedRef = useRef(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
+
+  // Push a loaded/synced agenda object into every state slice. Used by both
+  // the initial load and the live-sync handler so they stay in lockstep.
+  const applyData = useCallback((d) => {
+    setTasks(d.tasks || []);
+    setGoals(d.goals || []);
+    setFitness(d.fitness || { water: {}, weight: [] });
+    setDayNotes(d.dayNotes || {});
+    setWeekGoals(d.weekGoals || []);
+    setJournalEntries(d.journalEntries || []);
+    setEvents(d.events || []);
+    setDark(!!d.dark);
+    // pomodoro is restored as-is (including a possibly-mid-countdown state)
+    // rather than reset, so it doesn't jump back to the start on a sync.
+    setPomodoro(d.pomodoro || DEFAULT_POMODORO);
+    // streak is recomputed from task history by its own effect below.
+  }, []);
 
   // ---- load (runs once on mount; also re-runnable via retryLoad) ----
   const loadData = useCallback(async () => {
@@ -78,21 +102,8 @@ export function useAgendaState() {
     try {
       const d = await loadAgendaData();
       if (d) {
-        setTasks(d.tasks?.length ? d.tasks : seedTasks());
-        setGoals(d.goals || []);
-        setFitness(d.fitness || { water: {}, weight: [] });
-        setDayNotes(d.dayNotes || {});
-        setWeekGoals(d.weekGoals || []);
-        setJournalEntries(d.journalEntries || []);
-        setEvents(d.events || []);
-        setDark(!!d.dark);
-        // pomodoro is restored as-is (including a possibly-mid-countdown
-        // state) rather than reset, so a page refresh no longer wipes an
-        // in-progress focus session back to 25:00.
-        setPomodoro(d.pomodoro || DEFAULT_POMODORO);
-        // streak is recomputed below from actual task history rather
-        // than trusted from storage, so stale/incorrect saved values
-        // from before this fix self-correct automatically.
+        // Seed only when storage has literally no tasks yet (first-ever run).
+        applyData(d.tasks?.length ? d : { ...d, tasks: seedTasks() });
       } else {
         setTasks(seedTasks());
       }
@@ -110,13 +121,52 @@ export function useAgendaState() {
       // wrote back over the real data.
       setLoadError(true);
     }
-  }, []);
+  }, [applyData]);
 
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
     loadData();
   }, [loadData]);
+
+  // ---- live sync: apply writes made on other devices/tabs ----
+  // Once we've loaded, subscribe to Realtime changes on this user's agenda
+  // row. When another device adds or deletes a task (or changes anything),
+  // the update is pushed here and applied to state automatically — no manual
+  // refresh. Our own writes are filtered out upstream (see subscribeAgenda).
+  useEffect(() => {
+    if (!ready) return;
+    const unsubscribe = subscribeAgenda((d) => {
+      const handle = (data) => {
+        if (!data) return;
+        // Record this remote content as "already persisted" (using the streak
+        // our own effect will recompute, so the snapshot matches exactly) so
+        // the save effect won't bounce it straight back out and start an echo
+        // loop with the other device.
+        lastPersistedRef.current = JSON.stringify({
+          tasks: data.tasks || [],
+          goals: data.goals || [],
+          fitness: data.fitness || { water: {}, weight: [] },
+          dayNotes: data.dayNotes || {},
+          weekGoals: data.weekGoals || [],
+          journalEntries: data.journalEntries || [],
+          events: data.events || [],
+          dark: !!data.dark,
+          streak: computeStreak(data.tasks || [], todayISO()),
+          pomodoro: data.pomodoro || DEFAULT_POMODORO,
+        });
+        applyData(data);
+        showToast("Synced");
+      };
+      if (d === undefined) {
+        // Event arrived but we couldn't read its payload — re-fetch the row.
+        loadAgendaData().then(handle).catch(() => {});
+      } else {
+        handle(d);
+      }
+    });
+    return unsubscribe;
+  }, [ready, applyData]);
 
   // Manual retry for the error screen. Resets the once-only guard so the
   // load can actually run again.
@@ -131,11 +181,17 @@ export function useAgendaState() {
     // while the initial read is pending or has failed — the save can't race
     // ahead of the load and blank out stored data.
     if (!ready) return;
+    const snapshot = { tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro };
+    const json = JSON.stringify(snapshot);
+    // Nothing changed since the last save/sync — skip. This also stops a
+    // live-synced update from echoing back out to the other device.
+    if (json === lastPersistedRef.current) return;
     const h = setTimeout(() => {
       // A failed save used to fail completely silently, which made
       // symptoms like "my changes don't survive a refresh" impossible to
       // diagnose from the console. Now it's at least logged.
-      saveAgendaData({ tasks, goals, fitness, dayNotes, weekGoals, journalEntries, events, dark, streak, pomodoro })
+      lastPersistedRef.current = json;
+      saveAgendaData(snapshot)
         .catch((e) => console.error("Failed to save agenda data:", e));
     }, 400);
     return () => clearTimeout(h);
